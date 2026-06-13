@@ -345,16 +345,18 @@ header::before{display:none;}
 
 /* ══ CARRITO FAB ══ */
 .cart-fab{
-  position:fixed;bottom:1.8rem;right:1.8rem;z-index:300;
+  position:fixed;bottom:1.8rem;right:1.8rem;z-index:350;
   width:62px;height:62px;border-radius:50%;
   background:var(--accent);border:none;
   box-shadow:0 6px 24px rgba(232,83,26,.65), 0 0 0 3px rgba(232,83,26,.2);
   cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:var(--transition);opacity:0;pointer-events:none;transform:scale(.6);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
 }
 .cart-fab.visible{opacity:1;pointer-events:all;transform:scale(1);}
 .cart-fab:hover{transform:scale(1.1);box-shadow:0 6px 28px rgba(232,83,26,.7);}
-.cart-fab svg{width:22px;height:22px;color:#fff;}
+.cart-fab svg{width:22px;height:22px;color:#fff;pointer-events:none;}
 .cart-badge{
   position:absolute;top:-4px;right:-4px;
   min-width:20px;height:20px;
@@ -1735,7 +1737,16 @@ function closeLightbox() {
   lboxPhotoIdx = 0;
 }
 
-// Swipe en mobile para navegar fotos
+// Touch fix para iOS — el onclick a veces no dispara en botones fixed
+document.addEventListener('DOMContentLoaded', () => {
+  const fab = document.getElementById('cart-fab');
+  if (fab) {
+    fab.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      openCart();
+    }, { passive: false });
+  }
+});
 document.addEventListener('DOMContentLoaded', () => {
   const lb = document.getElementById('lightbox');
   let tx = 0;
