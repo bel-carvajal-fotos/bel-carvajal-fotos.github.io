@@ -1492,7 +1492,8 @@ function updateCartPriceTotal() {
 
 function openCart() {
   renderCartList();
-  document.getElementById('cart-day-tag').textContent = currentDay?.name || '';
+  const tag = document.getElementById('cart-day-tag');
+  if (tag) tag.textContent = currentDay?.name || '';
   document.getElementById('cart-overlay').classList.add('open');
 }
 function closeCart() { document.getElementById('cart-overlay').classList.remove('open'); }
