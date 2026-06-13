@@ -710,10 +710,10 @@ header::before{display:none;}
         <button class="btn-danger-sm" onclick="clearCart()">Limpiar</button>
       </div>
       <div class="cart-btns">
-        <button class="btn-outline" onclick="closeCart()">Seguir viendo</button>
-        <button class="btn-wa" onclick="sendToWhatsapp()">
+        <button class="btn-outline cart-keep-btn" onclick="closeCart()">Seguir viendo</button>
+        <button class="btn-wa cart-wa-btn" onclick="sendToWhatsapp()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-          Enviar a Bel por WhatsApp
+          <span>Enviar a Bel por WhatsApp</span>
         </button>
       </div>
     </div>
@@ -1320,16 +1320,13 @@ function openPaisajesGallery() {
   // Reemplazar barra de packs por pills de paisajes
   const packsBar = document.getElementById('packs-bar');
   if (packsBar) {
-    packsBar.innerHTML = `
-      <span class="packs-bar-title">Precios</span>
-      <div class="pack-pill">
-        <span class="pack-qty">1 foto</span>
-        <span class="pack-price">$10.000</span>
-      </div>
-      <div class="pack-pill pack-consultar" onclick="openPaisajesPackConsulta()">
-        <span class="pack-qty" style="font-size:.8rem;">Pack</span>
-        <span class="pack-price">Consultar</span>
-      </div>`;
+    const promoTxt = currentLang === 'pt' ? 'Leve 3, pague 2' : 'Llevás 3, pagás 2';
+    const unitTxt = currentLang === 'pt' ? '1 foto' : '1 foto';
+    packsBar.innerHTML =
+      '<span class="packs-bar-title">' + (currentLang==='pt'?'Preços':'Precios') + '</span>' +
+      '<div class="pack-pill"><span class="pack-qty">' + unitTxt + '</span><span class="pack-price">$10.000</span></div>' +
+      '<div class="pack-pill best"><span class="pack-qty" style="font-size:.75rem;">' + promoTxt + '</span><span class="pack-price">$20.000</span></div>' +
+      '<div class="pack-pill pack-consultar" onclick="openPaisajesPackConsulta()"><span class="pack-qty" style="font-size:.8rem;">' + (currentLang==='pt'?'Pacote':'Pack') + '</span><span class="pack-price">' + (currentLang==='pt'?'Consultar':'Consultar') + '</span></div>';
   }
   renderPaisajesGallery();
   showView('v-gallery');
@@ -1473,7 +1470,7 @@ function updateCartPriceTotal() {
     skiCost = result.price;
   }
   // Paisajes cost
-  const paisajesCost = nPaisajes * 10000;
+  const paisajesCost = getPaisajesPrice(nPaisajes);
   const grandTotal = skiCost + paisajesCost;
   priceEl.textContent = formatPrice(grandTotal);
   const parts = [];
@@ -1613,16 +1610,16 @@ function sendToWhatsapp() {
   // Paisajes
   if (selectedPaisajes.size > 0) {
     const paisajeItems = DB.paisajes.filter(p => selectedPaisajes.has(p.id));
-    const cost = formatPrice(paisajeItems.length * 10000);
+    const cost = formatPrice(getPaisajesPrice(paisajeItems.length));
     parts.push('🏔️ *Fotos de paisaje*\n'
       + paisajeItems.map((p, i) => '• ' + (p.filename || 'Paisaje '+(i+1))).join('\n')
-      + '\n' + paisajeItems.length + ' paisaje' + (paisajeItems.length!==1?'s':'') + ' × $10.000 = ' + cost);
+      + '\n' + getPaisajesLabel(paisajeItems.length) + ' = ' + cost);
   }
 
   const nSki = selected.size;
   const nPaisajes = selectedPaisajes.size;
   const skiCost = nSki > 0 ? getActualPrice(nSki).price : 0;
-  const totalCost = skiCost + nPaisajes * 10000;
+  const totalCost = skiCost + getPaisajesPrice(nPaisajes);
 
   const body = '¡Hola Bel! 👋 Soy *' + (currentUser?.name || 'Cliente') + '* (' + (currentUser?.email || '') + ')\n\n'
     + parts.join('\n\n')
@@ -2237,7 +2234,7 @@ const LANG = {
     waMsg: (name, email, day, date, list) =>
       `Hola Bel! 👋 Soy ${name} (${email}).\nEstuve en ${day} el ${date} y elegí estas fotos:\n\n${list}\n\n¡Gracias! 🏔️`,
     broadcastMsg: (link) =>
-      `Hola! Soy Bel Carvajal, fotógrafa del Cerro Catedral 📸\nYa están listas tus fotos del día! Podés verlas y elegir las que más te gustan acá:\n${link}\n\nRegistrate con tu email y buscá las fotos de hoy 🏔️`,
+      `Hola! Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\nYa están listas tus fotos del día! Podés verlas y elegir las que más te gustan acá:\n${link}\n\nRegistrate con tu email y buscá las fotos de hoy 🏔️`,
   },
   pt: {
     welcome: 'Bem-vindos 👋',
@@ -2272,7 +2269,7 @@ const LANG = {
     waMsg: (name, email, day, date, list) =>
       `Olá Bel! 👋 Sou ${name} (${email}).\nEstive em ${day} no dia ${date} e escolhi estas fotos:\n\n${list}\n\nObrigado! 🏔️`,
     broadcastMsg: (link) =>
-      `Olá! Sou Bel Carvajal, fotógrafa do Cerro Catedral 📸\nSuas fotos do dia já estão prontas! Você pode ver e escolher as que mais gostou aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje 🏔️`,
+      `Olá! Sou Bel Carvajal, fotógrafa do Cerro Catedral 🏔️\nSuas fotos do dia já estão prontas! Você pode ver e escolher as que mais gostou aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje 🏔️`,
   }
 };
 
@@ -2288,6 +2285,7 @@ function setLang(lang) {
 
 function applyLang() {
   const L = LANG[currentLang];
+  const isPt = currentLang === 'pt';
   // Login
   const loginH2 = document.querySelector('#v-login h2');
   if (loginH2) loginH2.textContent = L.welcome;
@@ -2295,6 +2293,8 @@ function applyLang() {
   if (loginP) loginP.textContent = L.loginSub;
   const loginBtn = document.querySelector('#v-login .btn-acc');
   if (loginBtn) loginBtn.textContent = L.loginBtn;
+  const loginSwitch = document.querySelector('#v-login .auth-switch');
+  if (loginSwitch) loginSwitch.innerHTML = L.firstTime + ' <a onclick="showView(&quot;v-register&quot;)">' + L.registerLink + '</a>';
   // Register
   const regH2 = document.querySelector('#v-register h2');
   if (regH2) regH2.textContent = L.registerTitle;
@@ -2304,16 +2304,38 @@ function applyLang() {
   if (regBtn) regBtn.textContent = L.registerBtn;
   const regName = document.getElementById('reg-name');
   if (regName) regName.placeholder = L.namePlaceholder;
+  const regSwitch = document.querySelector('#v-register .auth-switch');
+  if (regSwitch) regSwitch.innerHTML = L.alreadyAccount + ' <a onclick="showView(&quot;v-login&quot;)">' + L.loginLink + '</a>';
+  const regNameLabel = document.querySelector('#v-register label');
+  if (regNameLabel) regNameLabel.textContent = L.nameLabel;
   // Dias
   const diasTitle = document.querySelector('#v-dias h2');
-  if (diasTitle) diasTitle.innerHTML = `${L.searchTitle} <span>${L.searchSpan}</span>`;
-  const diasDesc = document.querySelector('#v-dias > div > p');
-  if (diasDesc) diasDesc.textContent = L.galleryDesc.replace(' 📷','') + ' 📷';
+  if (diasTitle) diasTitle.innerHTML = L.searchTitle + ' <span>' + L.searchSpan + '</span>';
+  const diasDesc = document.querySelector('.dias-desc');
+  if (diasDesc) diasDesc.textContent = L.galleryDesc;
+  // Paisajes card title
+  const paisajesTitle = document.querySelector('.dia-card-paisajes .dia-card-title');
+  if (paisajesTitle) paisajesTitle.innerHTML = (isPt ? 'LEVE SUAS FOTOS<br><span style="color:var(--accent);">DE PAISAGENS</span>' : 'LLEVATE TUS FOTOS<br><span style="color:var(--accent);">DE PAISAJES</span>');
+  // Gallery
+  const backBtn = document.querySelector('.back-btn');
+  if (backBtn) backBtn.textContent = L.backBtn;
+  const selCountEl = document.getElementById('sel-count');
+  const selCountLabel = document.querySelector('.gallery-meta');
+  if (selCountLabel) selCountLabel.innerHTML = '<span id="sel-count">' + (selCountEl ? selCountEl.textContent : '0') + '</span> ' + L.selCount;
   // Precios label
   const pricesLabel = document.getElementById('txt-prices');
   if (pricesLabel) pricesLabel.textContent = L.prices;
   // Cart
-  const cartH3txt = document.querySelector('.cart-hdr h3');
+  const cartTitle = document.querySelector('.cart-hdr h3');
+  if (cartTitle) {
+    const badge = cartTitle.querySelector('.day-badge');
+    cartTitle.textContent = L.cartTitle + ' ';
+    if (badge) cartTitle.appendChild(badge);
+  }
+  const keepBtn = document.querySelector('.cart-keep-btn');
+  if (keepBtn) keepBtn.textContent = L.keepBrowsing;
+  const sendBtn = document.querySelector('.cart-wa-btn span');
+  if (sendBtn) sendBtn.textContent = L.sendWa;
   // Lightbox select
   updateLboxBtn();
 }
@@ -2363,6 +2385,26 @@ function formatPrice(num) {
   return '$' + num.toLocaleString('es-AR');
 }
 
+// Precio paisajes: cada 3 llevás 1 gratis (pagás 2)
+// 1=$10.000, 2=$20.000, 3=$20.000, 4=$30.000, 5=$40.000, 6=$40.000...
+function getPaisajesPrice(n) {
+  if (n <= 0) return 0;
+  const pagadas = n - Math.floor(n / 3);
+  return pagadas * 10000;
+}
+
+function getPaisajesLabel(n) {
+  if (n <= 0) return '';
+  const gratis = Math.floor(n / 3);
+  const pagadas = n - gratis;
+  if (gratis > 0) {
+    return currentLang === 'pt'
+      ? pagadas + ' × $10.000 (' + gratis + ' grátis!)'
+      : pagadas + ' × $10.000 (' + gratis + ' gratis!)';
+  }
+  return n + ' × $10.000';
+}
+
 function getBestPack(n) {
   if (n <= 0) return null;
   if (n === 1) return PACKS[0];
@@ -2408,7 +2450,7 @@ function generateBroadcast() {
   const list  = document.getElementById('wa-contacts-list');
   if (!input || !list) return;
   list.innerHTML = '';
-  const link = 'https://bel-carvajal-fotos.netlify.app';
+  const link = 'https://bel-carvajal-fotos.github.io';
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
   lines.forEach(line => {
     // Parsear "número nombre" — el número puede tener + y dígitos
