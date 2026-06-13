@@ -834,7 +834,11 @@ header::before{display:none;}
 const CFG = {
   whatsapp: '5491168396314',
   adminPass: 'catedral2026',
-  appName:   'Bel Carvajal Fotos'
+  appName:   'Bel Carvajal Fotos',
+  cloudinary: {
+    cloudName: 'du9jolxqc',
+    uploadPreset: 'arz8j5l6'
+  }
 };
 
 // ═══════════════════════════════════════════
@@ -850,12 +854,14 @@ const firebaseConfig = {
 };
 
 let db = null;
+function getPhotoSrc(p) { return p.url || p.dataUrl || ""; }
 
 function initFirebase() {
   try {
     if (typeof firebase !== 'undefined') {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
+
       // Suscribirse a días en tiempo real
       db.collection('days').orderBy('date', 'desc').onSnapshot((snap) => {
         DB.days = snap.docs.map(d => d.data());
@@ -868,15 +874,10 @@ function initFirebase() {
         if (dayList && adminOK) renderDayList();
       }, (err) => { console.warn('Firestore error:', err); });
       // Suscribirse a paisajes en tiempo real (sin orderBy para evitar requerir índice)
-      db.collection('paisajes_v2').onSnapshot((snap) => {
-        // Juntar todos los chunks y ordenar por uploadedAt
-        const all = [];
-        snap.docs.forEach(d => {
-          const data = d.data();
-          if (data.photos) all.push(...data.photos);
-        });
-        DB.paisajes = all.sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
-        renderDias(); // actualiza card fija de paisajes
+      // Suscribirse a paisajes en tiempo real — metadata en Firestore, imagen en Storage
+      db.collection('paisajes_meta').onSnapshot((snap) => {
+        DB.paisajes = snap.docs.map(d => d.data()).sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
+        renderDias();
         if (adminOK) {
           const pList = document.getElementById('admin-paisajes-list');
           if (pList) renderAdminPaisajesList();
@@ -1232,11 +1233,10 @@ async function savePaisajesArrayToFirestore(photos) {
 
 async function deletePaisajeFromFirestore(id) {
   if (!db) return;
-  const updated = DB.paisajes.filter(p => p.id !== id);
-  DB.paisajes = updated;
-  renderDias();
-  renderAdminPaisajesList();
-  await savePaisajesArrayToFirestore(updated);
+  try {
+    await db.collection('paisajes_meta').doc(id).delete();
+    // Nota: la imagen en Cloudinary se puede borrar manualmente desde el dashboard
+  } catch(e) { console.warn('Error eliminando paisaje:', e); }
 }
 
 function renderAdminPaisajesList() {
@@ -1254,7 +1254,7 @@ function renderAdminPaisajesList() {
     wrap.className = 'thumb-wrap';
     wrap.title = p.filename || 'Paisaje ' + (i+1);
     wrap.innerHTML = `
-      <img src="${p.dataUrl}" alt="${p.filename || 'Paisaje '+(i+1)}">
+      <img src="${getPhotoSrc(p)}" alt="${p.filename || 'Paisaje '+(i+1)}">
       <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);font-size:.42rem;color:#fff;padding:2px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-b);">${p.filename || 'paisaje '+(i+1)}</div>
       <button class="thumb-del">✕</button>`;
     wrap.querySelector('.thumb-del').addEventListener('click', (e) => {
@@ -1277,7 +1277,7 @@ function renderDias() {
     const nSel = selectedPaisajes.size;
     const card = document.createElement('div');
     card.className = 'dia-card dia-card-paisajes';
-    const cover = DB.paisajes[0]?.dataUrl;
+    const cover = DB.paisajes[0] ? getPhotoSrc(DB.paisajes[0]) : null;
     card.innerHTML = `
       ${cover
         ? `<img class="dia-card-img" src="${cover}" alt="Paisajes" draggable="false">`
@@ -1372,12 +1372,12 @@ function renderPaisajesGallery() {
   }
   grid.innerHTML = '';
   DB.paisajes.forEach((photo, idx) => {
-    if (!photo.dataUrl) return;
+    if (!photo.url && !photo.dataUrl) return;
     const sel = selectedPaisajes.has(photo.id);
     const card = document.createElement('div');
     card.className = 'photo-card' + (sel ? ' selected' : '');
     card.innerHTML = `
-      <img src="${photo.dataUrl}" alt="Paisaje ${idx+1}" loading="lazy" draggable="false">
+      <img src="${getPhotoSrc(photo)}" alt="Paisaje ${idx+1}" loading="lazy" draggable="false">
       <div class="wm-wrap">
         <div class="wm-center">BEL CARVAJAL FOTOS</div>
         <div class="wm-tl">© Bel Carvajal</div>
@@ -1416,7 +1416,7 @@ function openPaisajeLightboxByIdx(idx) {
   if (!p) return;
   lboxPhotoId  = p.id;
   lboxPhotoIdx = idx;
-  document.getElementById('lbox-img').src = p.dataUrl;
+  document.getElementById('lbox-img').src = getPhotoSrc(p);
   updateLboxState();
   document.getElementById('lightbox').classList.add('open');
 }
@@ -1572,7 +1572,7 @@ function renderCartList() {
     item.className = 'cart-item';
     item.innerHTML = `
       <div class="cart-thumb" style="cursor:pointer;" title="Ver en grande">
-        <img src="${p.dataUrl}" alt="Paisaje ${idx+1}">
+        <img src="${getPhotoSrc(p)}" alt="Paisaje ${idx+1}">
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;background:rgba(0,0,0,.3);" class="cart-thumb-hover">🔍</div>
       </div>
       <div class="cart-info">
@@ -1712,7 +1712,7 @@ function lboxNav(dir) {
     lboxPhotoId  = photo.id;
     const img = document.getElementById('lbox-img');
     img.style.opacity = '0';
-    setTimeout(() => { img.src = photo.dataUrl; img.style.opacity = '1'; }, 120);
+    setTimeout(() => { img.src = getPhotoSrc(photo); img.style.opacity = '1'; }, 120);
     img.style.transition = 'opacity .12s';
     updateLboxState();
     return;
@@ -2133,26 +2133,42 @@ function handlePaisajesFiles(files) {
 }
 
 async function _savePaisaje(dataUrl, filename, rid, ps) {
-  const sizeKB = Math.round(dataUrl.length * 0.75 / 1024);
-  console.log('Guardando paisaje:', filename, sizeKB + 'KB');
-  const photo = {
-    id: 'paisaje_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-    filename: filename,
-    dataUrl: dataUrl,
-    uploadedAt: Date.now()
-  };
   try {
     if (!db) throw new Error('Firestore no disponible');
-    DB.paisajes.push(photo);
-    await savePaisajesArrayToFirestore(DB.paisajes);
+    if (ps) ps.textContent = '☁️';
+
+    // 1. Subir imagen a Cloudinary (sin límite de tamaño)
+    const formData = new FormData();
+    const blob = await (await fetch(dataUrl)).blob();
+    formData.append('file', blob, filename);
+    formData.append('upload_preset', CFG.cloudinary.uploadPreset);
+    formData.append('folder', 'paisajes');
+
+    const res = await fetch(
+      'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
+      { method: 'POST', body: formData }
+    );
+    if (!res.ok) throw new Error('Error subiendo a Cloudinary: ' + res.status);
+    const data = await res.json();
+    const url = data.secure_url;
+
+    // 2. Guardar solo metadata en Firestore (sin base64)
+    const photoId = 'paisaje_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const photo = {
+      id: photoId,
+      filename: filename,
+      url: url,
+      publicId: data.public_id,
+      uploadedAt: Date.now()
+    };
+    await db.collection('paisajes_meta').doc(photoId).set(photo);
+
     if (ps) ps.textContent = '✓';
-    renderDias();
     renderAdminPaisajesList();
   } catch(e) {
-    DB.paisajes.pop(); // revertir
     console.error('Error guardando paisaje:', e);
     if (ps) ps.textContent = '❌';
-    alert('Error al guardar ' + filename + ': ' + e.message);
+    alert('Error al guardar: ' + e.message);
   }
   setTimeout(() => document.getElementById(rid)?.remove(), 3000);
 }
