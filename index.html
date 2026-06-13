@@ -1868,10 +1868,17 @@ function renderAdminContent() {
       <div class="admin-section-title" id="txt-broadcast-title">Avisar clientes — Fotos listas</div>
       <p style="font-size:.75rem;color:var(--muted);margin-bottom:.7rem;line-height:1.5;" id="txt-broadcast-desc">Pegá los números de WhatsApp de hoy (uno por línea). Formato: +5492944123456 Familia García</p>
       <textarea class="broadcast-textarea" id="broadcast-input" placeholder="+5492944123456 Familia García&#10;+5492944789012 Familia López"></textarea>
-      <button class="btn-accent-sm" style="margin-top:.6rem;width:100%;" onclick="generateBroadcast()">Generar mensajes</button>
+      <button class="btn-accent-sm" style="margin-top:.6rem;width:100%;" onclick="generateBroadcast()">Generar mensajes y guardar pendientes</button>
       <div class="wa-contacts-list" id="wa-contacts-list"></div>
+    </div>
+
+    <div class="broadcast-section" style="margin-top:1rem;">
+      <div class="admin-section-title">📋 Pendientes — Sin respuesta</div>
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:.7rem;line-height:1.5;">Clientes a los que avisaste pero todavía no seleccionaron fotos.</p>
+      <div id="pending-list"></div>
     </div>`
   renderDayList();
+  renderPendingList();
   // Wire up add-day button
   const addBtn = document.getElementById('add-day-btn');
   if (addBtn) addBtn.addEventListener('click', addDay);
@@ -2081,13 +2088,11 @@ function handlePaisajesFiles(files) {
       clearInterval(iv);
       const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
       const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-      // Comprimir fuerte: max 800px, calidad 0.70 para quedar bien bajo 1MB de Firestore
-      compress(e2.target.result, 800, 0.70, async compressed => {
-        // Verificar tamaño aproximado en bytes
+      // Comprimir fuerte: max 600px, calidad 0.65 para quedar bien bajo 500KB
+      compress(e2.target.result, 600, 0.65, async compressed => {
         const sizeKB = Math.round(compressed.length * 0.75 / 1024);
-        if (sizeKB > 900) {
-          // Si sigue siendo grande, comprimir de nuevo más fuerte
-          compress(e2.target.result, 600, 0.60, async compressed2 => {
+        if (sizeKB > 700) {
+          compress(e2.target.result, 480, 0.55, async compressed2 => {
             await _savePaisaje(compressed2, file.name, rid, ps);
           });
           return;
@@ -2100,6 +2105,13 @@ function handlePaisajesFiles(files) {
 }
 
 async function _savePaisaje(dataUrl, filename, rid, ps) {
+  const sizeKB = Math.round(dataUrl.length * 0.75 / 1024);
+  console.log('Guardando paisaje:', filename, sizeKB + 'KB');
+  if (sizeKB > 950) {
+    if (ps) ps.textContent = '❌';
+    alert('La foto ' + filename + ' es demasiado grande (' + sizeKB + 'KB). Intentá con una foto de menor resolución.');
+    return;
+  }
   const photo = {
     id: 'paisaje_' + Date.now() + '_' + Math.random().toString(36).slice(2),
     filename: filename,
@@ -2114,9 +2126,8 @@ async function _savePaisaje(dataUrl, filename, rid, ps) {
   } catch(e) {
     console.error('Error guardando paisaje:', e);
     if (ps) ps.textContent = '❌';
-    alert('Error al guardar: ' + e.message + '\n\nTamaño aprox: ' + Math.round(dataUrl.length * 0.75 / 1024) + 'KB');
+    alert('Error al guardar ' + filename + ': ' + e.message + ' (tamaño: ' + sizeKB + 'KB)');
   }
-  const rid2 = ps?.closest?.('[id]')?.id;
   setTimeout(() => document.getElementById(rid)?.remove(), 3000);
 }
 
@@ -2471,6 +2482,66 @@ function updatePackSuggestion() {
 // ═══════════════════════════════════════════
 // BROADCAST — mensajes masivos
 // ═══════════════════════════════════════════
+function savePending(contacts) {
+  const existing = ls('bcPending') || [];
+  const now = Date.now();
+  contacts.forEach(c => {
+    const found = existing.find(e => e.num === c.num);
+    if (!found) existing.push({ ...c, sentAt: now, done: false });
+  });
+  ss('bcPending', existing);
+}
+
+function markPendingDone(num) {
+  const list = ls('bcPending') || [];
+  const item = list.find(e => e.num === num);
+  if (item) item.done = true;
+  ss('bcPending', list);
+  renderPendingList();
+}
+
+function deletePending(num) {
+  const list = (ls('bcPending') || []).filter(e => e.num !== num);
+  ss('bcPending', list);
+  renderPendingList();
+}
+
+function renderPendingList() {
+  const el = document.getElementById('pending-list');
+  if (!el) return;
+  const list = (ls('bcPending') || []).filter(e => !e.done);
+  if (!list.length) {
+    el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);">No hay pendientes. 🎉</p>';
+    return;
+  }
+  el.innerHTML = '';
+  const link = 'https://bel-carvajal-fotos.github.io';
+  list.sort((a,b) => a.sentAt - b.sentAt).forEach(c => {
+    const daysAgo = Math.floor((Date.now() - c.sentAt) / 86400000);
+    const daysLabel = daysAgo === 0 ? 'hoy' : daysAgo === 1 ? 'hace 1 día' : 'hace ' + daysAgo + ' días';
+    const reminder = encodeURIComponent(
+      'Hola ' + c.name + '! 👋 Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\n' +
+      'Te escribo porque todavía están disponibles tus fotos del día.\n' +
+      'Podés verlas y elegir las que más te gustan acá:\n' + link + '\n\n' +
+      '¡No te las pierdas! Las fotos se eliminan periódicamente 📸'
+    );
+    const waUrl = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminder;
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+    div.innerHTML =
+      '<div style="flex:1;min-width:120px;">' +
+        '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + c.name + '</div>' +
+        '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
+      '</div>' +
+      '<a href="' + waUrl + '" target="_blank" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 Recordatorio</a>' +
+      '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
+      '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '">✕</button>';
+    div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
+    div.querySelector('.del-pending-btn').addEventListener('click', () => deletePending(c.num));
+    el.appendChild(div);
+  });
+}
+
 function generateBroadcast() {
   const input = document.getElementById('broadcast-input').value.trim();
   const list  = document.getElementById('wa-contacts-list');
@@ -2478,31 +2549,36 @@ function generateBroadcast() {
   list.innerHTML = '';
   const link = 'https://bel-carvajal-fotos.github.io';
   const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+  const contacts = [];
   lines.forEach(line => {
-    // Parsear "número nombre" — el número puede tener + y dígitos
     const match = line.match(/^(\+?\d[\d\s\-]{6,20})\s*(.*)?$/);
     if (!match) return;
     const num  = match[1].replace(/\s/g,'');
     const name = match[2]?.trim() || 'Cliente';
+    contacts.push({ num, name });
     const L = LANG[currentLang];
     const msg = encodeURIComponent(L.broadcastMsg(link));
-    const waUrl = `https://wa.me/${num.replace('+','')}?text=${msg}`;
+    const waUrl = 'https://wa.me/' + num.replace('+','') + '?text=' + msg;
     const item = document.createElement('div');
     item.className = 'wa-contact-item';
-    item.innerHTML = `
-      <div>
-        <div class="wa-contact-name">${name}</div>
-        <div class="wa-contact-num">${num}</div>
-      </div>
-      <a href="${waUrl}" target="_blank" style="display:flex;align-items:center;gap:.4rem;padding:.42rem .9rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-family:var(--font-d);font-size:.75rem;font-weight:700;white-space:nowrap;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-        Enviar
-      </a>`;
+    item.innerHTML =
+      '<div>' +
+        '<div class="wa-contact-name">' + name + '</div>' +
+        '<div class="wa-contact-num">' + num + '</div>' +
+      '</div>' +
+      '<a href="' + waUrl + '" target="_blank" style="display:flex;align-items:center;gap:.4rem;padding:.42rem .9rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-family:var(--font-d);font-size:.75rem;font-weight:700;white-space:nowrap;">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>' +
+        'Enviar' +
+      '</a>';
     list.appendChild(item);
   });
   if (!list.children.length) {
     list.innerHTML = '<p style="font-size:.78rem;color:var(--muted);">No se encontraron números válidos. Formato: +5492944123456 Familia García</p>';
+    return;
   }
+  // Guardar como pendientes
+  savePending(contacts);
+  renderPendingList();
 }
 
 // ═══════════════════════════════════════════
