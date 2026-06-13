@@ -1737,13 +1737,15 @@ function closeLightbox() {
   lboxPhotoIdx = 0;
 }
 
-// Touch fix para iOS — el onclick a veces no dispara en botones fixed
+// Touch fix para iOS
 document.addEventListener('DOMContentLoaded', () => {
   const fab = document.getElementById('cart-fab');
   if (fab) {
+    fab.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
     fab.addEventListener('touchend', (e) => {
+      e.stopPropagation();
       e.preventDefault();
-      openCart();
+      if (fab.classList.contains('visible')) openCart();
     }, { passive: false });
   }
 });
