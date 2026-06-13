@@ -2029,9 +2029,10 @@ function renderDayList() {
 }
 
 function toggleDay(id) {
-  // Toggle sin re-renderizar — solo cambia la clase y el ícono
   expandedDay = expandedDay === id ? null : id;
-  const body = document.getElementById('dib_' + id);
+  // El id de paisajes usa dib___paisajes__, los días usan dib_
+  const bodyId = id === '__paisajes__' ? 'dib___paisajes__' : 'dib_' + id;
+  const body = document.getElementById(bodyId);
   const allBodies = document.querySelectorAll('.day-item-body');
   const allArrows = document.querySelectorAll('.day-arrow');
   allBodies.forEach(b => b.classList.remove('open'));
@@ -2040,6 +2041,12 @@ function toggleDay(id) {
     body.classList.add('open');
     const arrow = body.closest('.day-item')?.querySelector('.day-arrow');
     if (arrow) arrow.textContent = '▲';
+    // Renderizar contenido al abrir
+    if (id === '__paisajes__') {
+      renderAdminPaisajesList();
+    } else {
+      renderThumbs(id);
+    }
   }
 }
 
