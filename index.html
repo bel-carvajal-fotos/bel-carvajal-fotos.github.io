@@ -868,13 +868,18 @@ function initFirebase() {
         if (dayList && adminOK) renderDayList();
       }, (err) => { console.warn('Firestore error:', err); });
       // Suscribirse a paisajes en tiempo real (sin orderBy para evitar requerir índice)
-      db.collection('paisajes').onSnapshot((snap) => {
-        DB.paisajes = snap.docs.map(d => d.data()).sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
+      db.collection('paisajes_v2').onSnapshot((snap) => {
+        // Juntar todos los chunks y ordenar por uploadedAt
+        const all = [];
+        snap.docs.forEach(d => {
+          const data = d.data();
+          if (data.photos) all.push(...data.photos);
+        });
+        DB.paisajes = all.sort((a,b) => (a.uploadedAt||0) - (b.uploadedAt||0));
         renderDias(); // actualiza card fija de paisajes
         if (adminOK) {
           const pList = document.getElementById('admin-paisajes-list');
           if (pList) renderAdminPaisajesList();
-          // Actualizar contador en carpeta paisajes
           const dayList = document.getElementById('day-list');
           if (dayList) renderDayList();
         }
@@ -1206,16 +1211,32 @@ function restoreCartFromStorage() {
 // ═══════════════════════════════════════════
 // ADMIN PAISAJES
 // ═══════════════════════════════════════════
-async function savePaisajeToFirestore(photo) {
+async function savePaisajesArrayToFirestore(photos) {
   if (!db) return;
-  try {
-    await db.collection('paisajes').doc(photo.id).set(photo);
-  } catch(e) { console.warn('Error saving paisaje:', e); }
+  // Guardar en chunks de 10 fotos para no superar 1MB por doc
+  const CHUNK = 10;
+  const batches = [];
+  for (let i = 0; i < photos.length; i += CHUNK) {
+    batches.push(photos.slice(i, i + CHUNK));
+  }
+  for (let i = 0; i < batches.length; i++) {
+    await db.collection('paisajes_v2').doc('chunk_' + i).set({ photos: batches[i], updatedAt: Date.now() });
+  }
+  // Borrar chunks extra si hay menos ahora
+  const snap = await db.collection('paisajes_v2').get();
+  snap.docs.forEach(async d => {
+    const idx = parseInt(d.id.replace('chunk_',''));
+    if (idx >= batches.length) await d.ref.delete();
+  });
 }
 
 async function deletePaisajeFromFirestore(id) {
   if (!db) return;
-  try { await db.collection('paisajes').doc(id).delete(); } catch(e) {}
+  const updated = DB.paisajes.filter(p => p.id !== id);
+  DB.paisajes = updated;
+  renderDias();
+  renderAdminPaisajesList();
+  await savePaisajesArrayToFirestore(updated);
 }
 
 function renderAdminPaisajesList() {
@@ -2088,12 +2109,19 @@ function handlePaisajesFiles(files) {
       clearInterval(iv);
       const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
       const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-      // Comprimir fuerte: max 600px, calidad 0.65 para quedar bien bajo 500KB
-      compress(e2.target.result, 600, 0.65, async compressed => {
+      // Comprimir igual que fotos de esquí: max 920px, calidad 0.82, con fallback
+      compress(e2.target.result, 920, 0.82, async compressed => {
         const sizeKB = Math.round(compressed.length * 0.75 / 1024);
         if (sizeKB > 700) {
-          compress(e2.target.result, 480, 0.55, async compressed2 => {
-            await _savePaisaje(compressed2, file.name, rid, ps);
+          compress(e2.target.result, 700, 0.70, async c2 => {
+            const sizeKB2 = Math.round(c2.length * 0.75 / 1024);
+            if (sizeKB2 > 700) {
+              compress(e2.target.result, 500, 0.60, async c3 => {
+                await _savePaisaje(c3, file.name, rid, ps);
+              });
+            } else {
+              await _savePaisaje(c2, file.name, rid, ps);
+            }
           });
           return;
         }
@@ -2107,11 +2135,6 @@ function handlePaisajesFiles(files) {
 async function _savePaisaje(dataUrl, filename, rid, ps) {
   const sizeKB = Math.round(dataUrl.length * 0.75 / 1024);
   console.log('Guardando paisaje:', filename, sizeKB + 'KB');
-  if (sizeKB > 950) {
-    if (ps) ps.textContent = '❌';
-    alert('La foto ' + filename + ' es demasiado grande (' + sizeKB + 'KB). Intentá con una foto de menor resolución.');
-    return;
-  }
   const photo = {
     id: 'paisaje_' + Date.now() + '_' + Math.random().toString(36).slice(2),
     filename: filename,
@@ -2120,13 +2143,16 @@ async function _savePaisaje(dataUrl, filename, rid, ps) {
   };
   try {
     if (!db) throw new Error('Firestore no disponible');
-    await db.collection('paisajes').doc(photo.id).set(photo);
+    DB.paisajes.push(photo);
+    await savePaisajesArrayToFirestore(DB.paisajes);
     if (ps) ps.textContent = '✓';
+    renderDias();
     renderAdminPaisajesList();
   } catch(e) {
+    DB.paisajes.pop(); // revertir
     console.error('Error guardando paisaje:', e);
     if (ps) ps.textContent = '❌';
-    alert('Error al guardar ' + filename + ': ' + e.message + ' (tamaño: ' + sizeKB + 'KB)');
+    alert('Error al guardar ' + filename + ': ' + e.message);
   }
   setTimeout(() => document.getElementById(rid)?.remove(), 3000);
 }
