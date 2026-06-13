@@ -1221,21 +1221,30 @@ async function deletePaisajeFromFirestore(id) {
 function renderAdminPaisajesList() {
   const el = document.getElementById('admin-paisajes-list');
   if (!el) return;
-  if (!DB.paisajes.length) { el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);">Sin fotos de paisajes todavía.</p>'; return; }
+  if (!DB.paisajes.length) {
+    el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);margin-top:.5rem;">Sin fotos de paisajes todavía.</p>';
+    return;
+  }
   el.innerHTML = '';
-  DB.paisajes.forEach(p => {
-    const div = document.createElement('div');
-    div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--border);';
-    div.innerHTML = `<img src="${p.dataUrl}" style="width:52px;height:40px;object-fit:cover;border-radius:4px;">
-      <span style="flex:1;font-size:.78rem;color:var(--muted);">${p.filename || p.id}</span>
-      <button class="btn-danger-sm paisaje-del-btn" type="button">Eliminar</button>`;
-    div.querySelector('.paisaje-del-btn').addEventListener('click', async () => {
+  const strip = document.createElement('div');
+  strip.className = 'thumb-grid';
+  DB.paisajes.forEach((p, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    wrap.title = p.filename || 'Paisaje ' + (i+1);
+    wrap.innerHTML = `
+      <img src="${p.dataUrl}" alt="${p.filename || 'Paisaje '+(i+1)}">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);font-size:.42rem;color:#fff;padding:2px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-b);">${p.filename || 'paisaje '+(i+1)}</div>
+      <button class="thumb-del">✕</button>`;
+    wrap.querySelector('.thumb-del').addEventListener('click', (e) => {
+      e.stopPropagation();
       showConfirm('¿Eliminar esta foto de paisaje?', async () => {
         await deletePaisajeFromFirestore(p.id);
       });
     });
-    el.appendChild(div);
+    strip.appendChild(wrap);
   });
+  el.appendChild(strip);
 }
 
 function renderDias() {
