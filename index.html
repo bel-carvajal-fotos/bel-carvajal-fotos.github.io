@@ -1108,7 +1108,9 @@ async function doRegister() {
     if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
     return;
   }
-  const user = { name, email, registeredAt: new Date().toISOString().slice(0,10) };
+  const today = new Date();
+  const registeredAt = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+  const user = { name, email, registeredAt };
   await saveUserToFirestore(user);
   DB.users = loadUsers();
   if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
@@ -1997,9 +1999,16 @@ function renderAdminUsers() {
 
     el.appendChild(section);
 
+    // Auto-abrir el primer día (el más reciente)
+    if (days.indexOf(day) === 0) {
+      const body2 = document.getElementById('body_' + dayId);
+      const arr2 = document.getElementById('arr_' + dayId);
+      if (body2) body2.style.display = 'block';
+      if (arr2) arr2.textContent = '▲';
+    }
+
     const body = section.querySelector('#body_' + dayId);
     dayUsers.forEach(u => {
-      const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);';
       row.innerHTML =
         '<div style="flex:1;min-width:80px;">' +
