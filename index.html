@@ -1108,7 +1108,7 @@ async function doRegister() {
     if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
     return;
   }
-  const user = { name, email };
+  const user = { name, email, registeredAt: new Date().toISOString().slice(0,10) };
   await saveUserToFirestore(user);
   DB.users = loadUsers();
   if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
@@ -1880,9 +1880,21 @@ function renderAdminContent() {
       <div class="admin-section-title">Galerías (${DB.days.length + 1})</div>
       <div class="day-list" id="day-list"></div>
     </div>
-    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
-      <div style="font-family:var(--font-d);font-size:.62rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem;">Usuarios registrados (${loadUsers().length})</div>
-      ${loadUsers().length ? loadUsers().map(u=>`<div style="font-size:.78rem;color:var(--muted);padding:.3rem 0;border-bottom:1px solid var(--border);">📧 <strong style="color:var(--text)">${u.name}</strong> — ${u.email}</div>`).join('') : '<p style="font-size:.78rem;color:var(--muted);">Sin usuarios todavía</p>'}
+    <div class="admin-section" style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);">
+      <div class="day-item" id="users-section-item">
+        <div class="day-item-hdr" id="users-section-hdr" style="cursor:pointer;">
+          <div class="day-item-hdr-text" style="flex:1;">
+            <div class="day-item-name">👥 Usuarios registrados</div>
+            <div class="day-item-meta" id="users-count-label">${loadUsers().length} usuarios</div>
+          </div>
+          <div class="day-item-acts">
+            <span class="day-arrow" id="users-arrow">▼</span>
+          </div>
+        </div>
+        <div class="day-item-body" id="users-body">
+          <div id="users-by-day-list"></div>
+        </div>
+      </div>
     </div>
     <div style="margin-top:1.5rem;"><button class="btn-danger-sm" onclick="adminOK=false;renderAdminBody()">Cerrar sesión</button></div>
     <div class="broadcast-section">
@@ -1903,6 +1915,96 @@ function renderAdminContent() {
   // Wire up add-day button
   const addBtn = document.getElementById('add-day-btn');
   if (addBtn) addBtn.addEventListener('click', addDay);
+  // Wire up users section toggle
+  const usersHdr = document.getElementById('users-section-hdr');
+  if (usersHdr) {
+    usersHdr.addEventListener('click', () => {
+      const body = document.getElementById('users-body');
+      const arrow = document.getElementById('users-arrow');
+      const isOpen = body.classList.toggle('open');
+      if (arrow) arrow.textContent = isOpen ? '▲' : '▼';
+      if (isOpen) renderAdminUsers();
+    });
+  }
+}
+
+function deleteUser(email) {
+  showConfirm('¿Eliminar usuario ' + email + '?', () => {
+    const users = loadUsers().filter(u => u.email !== email);
+    ss('bcUsers', users);
+    DB.users = users;
+    // Update count label
+    const label = document.getElementById('users-count-label');
+    if (label) label.textContent = users.length + ' usuarios';
+    renderAdminUsers();
+  });
+}
+
+function markUserBought(email) {
+  const users = loadUsers().map(u => u.email === email ? { ...u, bought: true } : u);
+  ss('bcUsers', users);
+  DB.users = users;
+  // Also mark as done in pending list
+  markPendingDone(email);
+  renderAdminUsers();
+}
+
+function renderAdminUsers() {
+  const el = document.getElementById('users-by-day-list');
+  if (!el) return;
+  const users = loadUsers();
+  if (!users.length) {
+    el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);padding:.4rem 0;">Sin usuarios todavía.</p>';
+    return;
+  }
+  // Agrupar por día de registro
+  const byDay = {};
+  users.forEach(u => {
+    const day = u.registeredAt || 'Sin fecha';
+    if (!byDay[day]) byDay[day] = [];
+    byDay[day].push(u);
+  });
+  // Ordenar días desc
+  const days = Object.keys(byDay).sort((a,b) => b.localeCompare(a));
+  el.innerHTML = '';
+  days.forEach(day => {
+    const dayUsers = byDay[day];
+    // Formatear fecha
+    let dayLabel = day;
+    if (day !== 'Sin fecha') {
+      const d = new Date(day + 'T12:00:00');
+      dayLabel = d.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+    }
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-bottom:.8rem;';
+    section.innerHTML =
+      '<div style="font-family:var(--font-h);font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:.6rem 0 .3rem;display:flex;align-items:center;gap:.4rem;">' +
+        '<span style="flex:1;height:1px;background:var(--border);display:block;"></span>' +
+        dayLabel + ' (' + dayUsers.length + ')' +
+        '<span style="flex:1;height:1px;background:var(--border);display:block;"></span>' +
+      '</div>';
+    dayUsers.forEach(u => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+      row.innerHTML =
+        '<div style="flex:1;min-width:100px;">' +
+          '<div style="font-size:.8rem;font-weight:700;color:' + (u.bought ? 'var(--muted)' : 'var(--cream)') + ';display:flex;align-items:center;gap:.3rem;">' +
+            (u.bought ? '✅ ' : '') + u.name +
+          '</div>' +
+          '<div style="font-size:.68rem;color:var(--muted);">' + u.email + '</div>' +
+        '</div>' +
+        (!u.bought ? '<button class="btn-accent-sm bought-btn" style="font-size:.65rem;padding:.25rem .6rem;" data-email="' + u.email + '">✓ Compró</button>' : '') +
+        '<button class="btn-danger-sm del-user-btn" style="font-size:.65rem;" data-email="' + u.email + '">✕</button>';
+      row.querySelectorAll('.bought-btn').forEach(btn => {
+        btn.addEventListener('click', () => markUserBought(btn.dataset.email));
+      });
+      row.querySelectorAll('.del-user-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteUser(btn.dataset.email));
+      });
+      section.appendChild(row);
+    });
+    el.appendChild(section);
+  });
 }
 
 async function addDay() {
