@@ -1960,51 +1960,74 @@ function renderAdminUsers() {
   // Agrupar por día de registro
   const byDay = {};
   users.forEach(u => {
-    const day = u.registeredAt || 'Sin fecha';
+    const day = u.registeredAt || 'anteriores';
     if (!byDay[day]) byDay[day] = [];
     byDay[day].push(u);
   });
-  // Ordenar días desc
-  const days = Object.keys(byDay).sort((a,b) => b.localeCompare(a));
+  // Ordenar días desc, "anteriores" al final
+  const days = Object.keys(byDay).sort((a,b) => {
+    if (a === 'anteriores') return 1;
+    if (b === 'anteriores') return -1;
+    return b.localeCompare(a);
+  });
   el.innerHTML = '';
   days.forEach(day => {
     const dayUsers = byDay[day];
-    // Formatear fecha
     let dayLabel = day;
-    if (day !== 'Sin fecha') {
+    if (day === 'anteriores') {
+      dayLabel = 'Usuarios anteriores';
+    } else {
       const d = new Date(day + 'T12:00:00');
       dayLabel = d.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
     }
     const section = document.createElement('div');
     section.style.cssText = 'margin-bottom:.8rem;';
+
+    // Header del día colapsable
+    const dayId = 'uday_' + day.replace(/[^a-z0-9]/gi,'_');
     section.innerHTML =
-      '<div style="font-family:var(--font-h);font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:.6rem 0 .3rem;display:flex;align-items:center;gap:.4rem;">' +
-        '<span style="flex:1;height:1px;background:var(--border);display:block;"></span>' +
-        dayLabel + ' (' + dayUsers.length + ')' +
-        '<span style="flex:1;height:1px;background:var(--border);display:block;"></span>' +
+      '<div id="hdr_' + dayId + '" style="display:flex;align-items:center;gap:.5rem;padding:.45rem .3rem;cursor:pointer;border-radius:6px;" onclick="toggleUserDay(\'' + dayId + '\')">' +
+        '<span style="font-family:var(--font-h);font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);flex:1;">' +
+          dayLabel + ' <span style="color:var(--muted);font-size:.6rem;">(' + dayUsers.length + ')</span>' +
+        '</span>' +
+        '<span id="arr_' + dayId + '" style="color:var(--muted);font-size:.75rem;">▼</span>' +
+      '</div>' +
+      '<div id="body_' + dayId + '" style="display:none;padding-left:.3rem;">' +
       '</div>';
+
+    el.appendChild(section);
+
+    const body = section.querySelector('#body_' + dayId);
     dayUsers.forEach(u => {
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+      row.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.4rem 0;border-bottom:1px solid var(--border);';
       row.innerHTML =
-        '<div style="flex:1;min-width:100px;">' +
-          '<div style="font-size:.8rem;font-weight:700;color:' + (u.bought ? 'var(--muted)' : 'var(--cream)') + ';display:flex;align-items:center;gap:.3rem;">' +
+        '<div style="flex:1;min-width:80px;">' +
+          '<div style="font-size:.8rem;font-weight:700;color:' + (u.bought ? 'var(--muted)' : 'var(--cream)') + ';">' +
             (u.bought ? '✅ ' : '') + u.name +
           '</div>' +
           '<div style="font-size:.68rem;color:var(--muted);">' + u.email + '</div>' +
         '</div>' +
-        (!u.bought ? '<button class="btn-accent-sm bought-btn" style="font-size:.65rem;padding:.25rem .6rem;" data-email="' + u.email + '">✓ Compró</button>' : '') +
-        '<button class="btn-danger-sm del-user-btn" style="font-size:.65rem;" data-email="' + u.email + '">✕</button>';
-      row.querySelectorAll('.bought-btn').forEach(btn => {
+        (!u.bought ? '<button class="btn-accent-sm" style="font-size:.62rem;padding:.22rem .55rem;" data-email="' + u.email + '">✓ Compró</button>' : '') +
+        '<button class="btn-danger-sm" style="font-size:.62rem;" data-email="' + u.email + '">✕</button>';
+      row.querySelectorAll('.btn-accent-sm').forEach(btn => {
         btn.addEventListener('click', () => markUserBought(btn.dataset.email));
       });
-      row.querySelectorAll('.del-user-btn').forEach(btn => {
+      row.querySelectorAll('.btn-danger-sm').forEach(btn => {
         btn.addEventListener('click', () => deleteUser(btn.dataset.email));
       });
-      section.appendChild(row);
+      body.appendChild(row);
     });
-    el.appendChild(section);
   });
+}
+
+function toggleUserDay(dayId) {
+  const body = document.getElementById('body_' + dayId);
+  const arr = document.getElementById('arr_' + dayId);
+  if (!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (arr) arr.textContent = open ? '▲' : '▼';
 }
 
 async function addDay() {
