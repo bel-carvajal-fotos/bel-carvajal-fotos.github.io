@@ -1325,6 +1325,8 @@ function formatDate(str) {
 function openDay(id) {
   currentDay = DB.days.find(d => d.id === id);
   if (!currentDay) return;
+  paisajesGalleryMode = false;
+  restoreSkiPacksBar();
   selected.clear();
   // Restore saved selection for this day/user
   const saved = ls('bcCart_' + (currentUser?.email || ''));
@@ -1344,6 +1346,13 @@ function openDay(id) {
 // GALERÍA PAISAJES
 // ═══════════════════════════════════════════
 let paisajesGalleryMode = false;
+let _skiPacksBarHTML = null;
+function restoreSkiPacksBar() {
+  const packsBar = document.getElementById('packs-bar');
+  if (!packsBar) return;
+  if (_skiPacksBarHTML === null) _skiPacksBarHTML = packsBar.innerHTML; // primera vez: guarda el original
+  packsBar.innerHTML = _skiPacksBarHTML;
+}
 
 function openPaisajesGallery() {
   paisajesGalleryMode = true;
@@ -1771,6 +1780,10 @@ function closeLightbox() {
 }
 
 // Touch fix para iOS
+document.addEventListener('DOMContentLoaded', () => {
+  const pb = document.getElementById('packs-bar');
+  if (pb && _skiPacksBarHTML === null) _skiPacksBarHTML = pb.innerHTML;
+});
 document.addEventListener('DOMContentLoaded', () => {
   const fab = document.getElementById('cart-fab');
   if (fab) {
