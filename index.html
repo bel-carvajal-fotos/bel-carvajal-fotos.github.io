@@ -887,6 +887,8 @@ function initFirebase() {
       }, (err) => { console.warn('Paisajes Firestore error:', err); });
       // Cargar usuarios desde Firestore
       loadUsersFromFirestore();
+      // Cargar pendientes desde Firestore
+      loadPendingFromFirestore();
     }
   } catch(e) { console.warn('Firebase init error:', e); }
 }
@@ -2679,28 +2681,65 @@ function updatePackSuggestion() {
 // ═══════════════════════════════════════════
 // BROADCAST — mensajes masivos
 // ═══════════════════════════════════════════
-function savePending(contacts) {
-  const existing = ls('bcPending') || [];
-  const now = Date.now();
-  contacts.forEach(c => {
-    const found = existing.find(e => e.num === c.num);
-    if (!found) existing.push({ ...c, sentAt: now, done: false });
-  });
-  ss('bcPending', existing);
+function pendingDocId(num) { return num.replace(/[^0-9]/g,''); }
+
+async function loadPendingFromFirestore() {
+  if (!db) return;
+  try {
+    const snap = await db.collection('pending').get();
+    const list = snap.docs.map(d => d.data());
+    if (list.length) ss('bcPending', list);
+    if (adminOK) renderPendingList();
+  } catch(e) { console.warn('Firestore pending load error:', e); }
 }
 
-function markPendingDone(num) {
+async function savePending(contacts) {
+  const existing = ls('bcPending') || [];
+  const now = Date.now();
+  const toSave = [];
+  contacts.forEach(c => {
+    const found = existing.find(e => e.num === c.num);
+    if (!found) {
+      const item = { ...c, sentAt: now, done: false };
+      existing.push(item);
+      toSave.push(item);
+    }
+  });
+  ss('bcPending', existing);
+  if (db) {
+    for (const item of toSave) {
+      try { await db.collection('pending').doc(pendingDocId(item.num)).set(item); }
+      catch(e) { console.warn('Firestore pending save error:', e); }
+    }
+  }
+}
+
+async function markPendingDone(num) {
   const list = ls('bcPending') || [];
   const item = list.find(e => e.num === num);
   if (item) item.done = true;
   ss('bcPending', list);
   renderPendingList();
+  if (db && item) {
+    try { await db.collection('pending').doc(pendingDocId(num)).set(item); }
+    catch(e) { console.warn('Firestore pending update error:', e); }
+  }
 }
 
-function deletePending(num) {
+async function deletePending(num) {
   const list = (ls('bcPending') || []).filter(e => e.num !== num);
   ss('bcPending', list);
   renderPendingList();
+  if (db) {
+    try { await db.collection('pending').doc(pendingDocId(num)).delete(); }
+    catch(e) { console.warn('Firestore pending delete error:', e); }
+  }
+}
+
+function confirmDeletePending(num, name) {
+  if (confirm('¿Eliminar a ' + name + ' (' + num + ') de pendientes?')) {
+    deletePending(num);
+  }
 }
 
 function renderPendingList() {
@@ -2711,35 +2750,80 @@ function renderPendingList() {
     el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);">No hay pendientes. 🎉</p>';
     return;
   }
-  el.innerHTML = '';
   const link = 'https://bel-carvajal-fotos.github.io';
-  list.sort((a,b) => a.sentAt - b.sentAt).forEach(c => {
-    const daysAgo = Math.floor((Date.now() - c.sentAt) / 86400000);
-    const daysLabel = daysAgo === 0 ? 'hoy' : daysAgo === 1 ? 'hace 1 día' : 'hace ' + daysAgo + ' días';
-    const reminder = encodeURIComponent(
-      'Hola ' + c.name + '! 👋 Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\n' +
-      'Te escribo porque todavía están disponibles tus fotos del día.\n' +
-      'Podés verlas y elegir las que más te gustan acá:\n' + link + '\n\n' +
-      '¡No te las pierdas! Las fotos se eliminan periódicamente 📸'
-    );
-    const waUrl = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminder;
-    const div = document.createElement('div');
-    div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
-    div.innerHTML =
-      '<div style="flex:1;min-width:120px;">' +
-        '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + c.name + '</div>' +
-        '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
+  // Agrupar por día de carga (sentAt)
+  const byDay = {};
+  list.forEach(c => {
+    const dayKey = new Date(c.sentAt).toISOString().slice(0,10);
+    if (!byDay[dayKey]) byDay[dayKey] = [];
+    byDay[dayKey].push(c);
+  });
+  const days = Object.keys(byDay).sort((a,b) => b.localeCompare(a)); // más reciente primero
+  el.innerHTML = '';
+  days.forEach((dayKey, idx) => {
+    const dayContacts = byDay[dayKey];
+    const d = new Date(dayKey + 'T12:00:00');
+    const dayLabel = d.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+    const pdayId = 'pday_' + dayKey.replace(/[^0-9]/g,'');
+
+    const section = document.createElement('div');
+    section.style.cssText = 'margin-bottom:.8rem;';
+    section.innerHTML =
+      '<div id="hdr_' + pdayId + '" style="display:flex;align-items:center;gap:.5rem;padding:.45rem .3rem;cursor:pointer;border-radius:6px;">' +
+        '<span style="font-family:var(--font-h);font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);flex:1;">' +
+          dayLabel + ' <span style="color:var(--muted);font-size:.6rem;">(' + dayContacts.length + ')</span>' +
+        '</span>' +
+        '<span id="arr_' + pdayId + '" style="color:var(--muted);font-size:.75rem;">▼</span>' +
       '</div>' +
-      '<a href="' + waUrl + '" target="_blank" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 Recordatorio</a>' +
-      '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
-      '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '">✕</button>';
-    div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
-    div.querySelector('.del-pending-btn').addEventListener('click', () => deletePending(c.num));
-    el.appendChild(div);
+      '<div id="body_' + pdayId + '" style="display:none;padding-left:.3rem;"></div>';
+    el.appendChild(section);
+
+    section.querySelector('#hdr_' + pdayId).addEventListener('click', () => togglePendingDay(pdayId));
+
+    // Auto-abrir el día más reciente
+    if (idx === 0) {
+      section.querySelector('#body_' + pdayId).style.display = 'block';
+      section.querySelector('#arr_' + pdayId).textContent = '▲';
+    }
+
+    const body = section.querySelector('#body_' + pdayId);
+    dayContacts.sort((a,b) => a.sentAt - b.sentAt).forEach(c => {
+      const daysAgo = Math.floor((Date.now() - c.sentAt) / 86400000);
+      const daysLabel = daysAgo === 0 ? 'hoy' : daysAgo === 1 ? 'hace 1 día' : 'hace ' + daysAgo + ' días';
+      const reminder = encodeURIComponent(
+        'Hola ' + c.name + '! 👋 Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\n' +
+        'Te escribo porque todavía están disponibles tus fotos del día.\n' +
+        'Podés verlas y elegir las que más te gustan acá:\n' + link + '\n\n' +
+        '¡No te las pierdas! Las fotos se eliminan periódicamente 📸'
+      );
+      const waUrl = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminder;
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+      div.innerHTML =
+        '<div style="flex:1;min-width:120px;">' +
+          '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + c.name + '</div>' +
+          '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
+        '</div>' +
+        '<a href="' + waUrl + '" target="_blank" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 Recordatorio</a>' +
+        '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
+        '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '" data-name="' + c.name + '">✕</button>';
+      div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
+      div.querySelector('.del-pending-btn').addEventListener('click', () => confirmDeletePending(c.num, c.name));
+      body.appendChild(div);
+    });
   });
 }
 
-function generateBroadcast() {
+function togglePendingDay(pdayId) {
+  const body = document.getElementById('body_' + pdayId);
+  const arr = document.getElementById('arr_' + pdayId);
+  if (!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (arr) arr.textContent = open ? '▲' : '▼';
+}
+
+async function generateBroadcast() {
   const input = document.getElementById('broadcast-input').value.trim();
   const list  = document.getElementById('wa-contacts-list');
   if (!input || !list) return;
@@ -2774,7 +2858,7 @@ function generateBroadcast() {
     return;
   }
   // Guardar como pendientes
-  savePending(contacts);
+  await savePending(contacts);
   renderPendingList();
 }
 
