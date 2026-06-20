@@ -330,7 +330,7 @@ header::before{display:none;}
 .photo-card.selected img{filter:brightness(.92);}
 /* Marcas de agua — grilla repetida sin zonas libres */
 .wm-wrap{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden;}
-.wm-wrap::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='90'%3E%3Ctext x='50%25' y='38' text-anchor='middle' font-family='Arial,sans-serif' font-size='11' font-weight='900' fill='rgba(255,255,255,0.28)' letter-spacing='3' transform='rotate(-28,100,45)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;transform:rotate(0deg);}
+.wm-wrap::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='80'%3E%3Ctext x='50%25' y='30' text-anchor='middle' font-family='Arial,sans-serif' font-size='10' font-weight='900' fill='rgba(255,255,255,0.32)' letter-spacing='2' transform='rotate(-28,90,40)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3Ctext x='50%25' y='65' text-anchor='middle' font-family='Arial,sans-serif' font-size='10' font-weight='900' fill='rgba(255,255,255,0.32)' letter-spacing='2' transform='rotate(-28,90,40)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;}
 .wm-tl{position:absolute;top:6px;left:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.35);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;letter-spacing:.05em;}
 .wm-br{position:absolute;bottom:6px;right:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.35);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;}
 .wm-center{display:none;}
@@ -417,7 +417,7 @@ header::before{display:none;}
 .lbox-inner{position:relative;display:inline-flex;flex-direction:column;align-items:center;max-width:92vw;}
 .lightbox img{max-width:88vw;max-height:75vh;object-fit:contain;border-radius:4px;display:block;}
 .lbox-wm{position:absolute;top:0;left:0;right:0;bottom:52px;pointer-events:none;overflow:hidden;}
-.lbox-wm::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='100'%3E%3Ctext x='50%25' y='42' text-anchor='middle' font-family='Arial,sans-serif' font-size='13' font-weight='900' fill='rgba(255,255,255,0.32)' letter-spacing='3' transform='rotate(-28,110,50)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;}
+.lbox-wm::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='85'%3E%3Ctext x='50%25' y='30' text-anchor='middle' font-family='Arial,sans-serif' font-size='12' font-weight='900' fill='rgba(255,255,255,0.35)' letter-spacing='2' transform='rotate(-28,95,42)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3Ctext x='50%25' y='68' text-anchor='middle' font-family='Arial,sans-serif' font-size='12' font-weight='900' fill='rgba(255,255,255,0.35)' letter-spacing='2' transform='rotate(-28,95,42)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;}
 .lbox-wm-tl{position:absolute;top:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;letter-spacing:.08em;}
 .lbox-wm-tr{position:absolute;top:12px;right:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
 .lbox-wm-bl{position:absolute;bottom:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
@@ -1323,7 +1323,8 @@ function renderDias() {
 function formatDate(str) {
   if (!str) return '';
   const d = new Date(str + 'T12:00:00');
-  return d.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const locale = currentLang === 'pt' ? 'pt-BR' : 'es-AR';
+  return d.toLocaleDateString(locale, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 }
 
 function openDay(id) {
@@ -1367,7 +1368,7 @@ function openPaisajesGallery() {
   // Reemplazar barra de packs por pills de paisajes
   const packsBar = document.getElementById('packs-bar');
   if (packsBar) {
-    const promoTxt = currentLang === 'pt' ? 'Leve 3, pague 2' : 'Llevás 3, pagás 2';
+    const promoTxt = currentLang === 'pt' ? 'Escolha 3, pague 2' : 'Llevás 3, pagás 2';
     const unitTxt = currentLang === 'pt' ? '1 foto' : '1 foto';
     packsBar.innerHTML =
       '<span class="packs-bar-title">' + (currentLang==='pt'?'Preços':'Precios') + '</span>' +
@@ -2470,9 +2471,9 @@ const LANG = {
     packBest: 'MEJOR',
     packSuggest: (n, pack) => `💡 Con <strong>${n} fotos</strong> te conviene el <strong>${pack}</strong>`,
     waMsg: (name, email, day, date, list) =>
-      `Hola Bel! 👋 Soy ${name} (${email}).\nEstuve en ${day} el ${date} y elegí estas fotos:\n\n${list}\n\n¡Gracias! 🏔️`,
+      `Hola Bel! Soy ${name} (${email}).\nEstuve en ${day} el ${date}.\nEstas son las fotos que elegi del dia:\n\n${list}\n\nGracias!`,
     broadcastMsg: (link) =>
-      `Hola! Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\nYa están listas tus fotos del día! Podés verlas y elegir las que más te gustan acá:\n${link}\n\nRegistrate con tu email y buscá las fotos de hoy 🏔️`,
+      `Hola! Soy Bel Carvajal, fotografa del Cerro Catedral.\nYa estan listas tus fotos del dia! Podes verlas y elegir las que mas te gustan aca:\n${link}\n\nRegistrate con tu email y busca las fotos de hoy.`,
   },
   pt: {
     welcome: 'Bem-vindos 👋',
@@ -2505,9 +2506,9 @@ const LANG = {
     packBest: 'MELHOR',
     packSuggest: (n, pack) => `💡 Com <strong>${n} fotos</strong> o melhor é o <strong>${pack}</strong>`,
     waMsg: (name, email, day, date, list) =>
-      `Olá Bel! 👋 Sou ${name} (${email}).\nEstive em ${day} no dia ${date} e escolhi estas fotos:\n\n${list}\n\nObrigado! 🏔️`,
+      `Olá Bel! 👋 Sou ${name} (${email}).\nEstive em ${day} no dia ${date} e escolhi estas fotos:\n\n${list}\n\nObrigado!`,
     broadcastMsg: (link) =>
-      `Olá! Sou Bel Carvajal, fotógrafa do Cerro Catedral 🏔️\nSuas fotos do dia já estão prontas! Você pode ver e escolher as que mais gostou aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje 🏔️`,
+      `Ola! Sou Bel Carvajal, fotografa do Cerro Catedral.\nSuas fotos do dia ja estao prontas! Voce pode ver e escolher as que mais gostou aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje.`,
   }
 };
 
@@ -2708,6 +2709,8 @@ async function savePending(contacts) {
     }
   });
   ss('bcPending', existing);
+  // Renderizar inmediatamente después de guardar en localStorage
+  renderPendingList();
   if (db) {
     for (const item of toSave) {
       try { await db.collection('pending').doc(pendingDocId(item.num)).set(item); }
