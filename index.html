@@ -328,12 +328,13 @@ header::before{display:none;}
 .photo-card img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(.84);transition:filter .25s;pointer-events:none;-webkit-user-drag:none;}
 .photo-card:hover img{filter:brightness(.98);}
 .photo-card.selected img{filter:brightness(.92);}
-/* Marcas de agua */
+/* Marcas de agua — grilla repetida sin zonas libres */
 .wm-wrap{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden;}
-.wm-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-family:var(--font-display);font-size:clamp(.82rem,2.4vw,1.15rem);font-weight:900;color:rgba(255,255,255,.42);text-transform:uppercase;letter-spacing:.18em;white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.8);user-select:none;}
-.wm-tl{position:absolute;top:6px;left:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.3);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;letter-spacing:.05em;}
-.wm-br{position:absolute;bottom:6px;right:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.3);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;}
-.wm-diag{position:absolute;top:25%;left:-20%;width:140%;font-family:var(--font-d);font-size:clamp(.58rem,1.3vw,.78rem);font-weight:700;color:rgba(255,255,255,.12);text-transform:uppercase;letter-spacing:.35em;transform:rotate(-28deg);user-select:none;white-space:nowrap;}
+.wm-wrap::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='90'%3E%3Ctext x='50%25' y='38' text-anchor='middle' font-family='Arial,sans-serif' font-size='11' font-weight='900' fill='rgba(255,255,255,0.28)' letter-spacing='3' transform='rotate(-28,100,45)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;transform:rotate(0deg);}
+.wm-tl{position:absolute;top:6px;left:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.35);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;letter-spacing:.05em;}
+.wm-br{position:absolute;bottom:6px;right:7px;font-family:var(--font-d);font-size:clamp(.48rem,1vw,.62rem);font-weight:700;color:rgba(255,255,255,.35);text-shadow:0 1px 4px rgba(0,0,0,.9);user-select:none;}
+.wm-center{display:none;}
+.wm-diag{display:none;}
 .check-badge{position:absolute;top:7px;right:7px;z-index:5;width:26px;height:26px;background:rgba(0,0,0,.5);border:1.5px solid rgba(255,255,255,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:var(--transition);backdrop-filter:blur(4px);}
 .check-badge svg{width:12px;height:12px;opacity:.65;}
 .photo-card.selected .check-badge{background:var(--accent);border-color:var(--accent);}
@@ -416,12 +417,13 @@ header::before{display:none;}
 .lbox-inner{position:relative;display:inline-flex;flex-direction:column;align-items:center;max-width:92vw;}
 .lightbox img{max-width:88vw;max-height:75vh;object-fit:contain;border-radius:4px;display:block;}
 .lbox-wm{position:absolute;top:0;left:0;right:0;bottom:52px;pointer-events:none;overflow:hidden;}
-.lbox-wm-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-family:var(--font-display);font-size:clamp(1.4rem,4.5vw,2.8rem);font-weight:900;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.2em;text-shadow:0 2px 12px rgba(0,0,0,.9);user-select:none;white-space:nowrap;}
-.lbox-wm-tl{position:absolute;top:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.34);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;letter-spacing:.08em;}
-.lbox-wm-tr{position:absolute;top:12px;right:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.34);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
-.lbox-wm-bl{position:absolute;bottom:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.34);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
-.lbox-wm-br{position:absolute;bottom:12px;right:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.34);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
-.lbox-wm-diag{position:absolute;top:28%;left:-10%;width:120%;font-family:var(--font-d);font-size:clamp(.7rem,1.8vw,1rem);font-weight:700;color:rgba(255,255,255,.11);text-transform:uppercase;letter-spacing:.4em;transform:rotate(-28deg);user-select:none;white-space:nowrap;}
+.lbox-wm::before{content:'';position:absolute;inset:-60%;width:220%;height:220%;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='100'%3E%3Ctext x='50%25' y='42' text-anchor='middle' font-family='Arial,sans-serif' font-size='13' font-weight='900' fill='rgba(255,255,255,0.32)' letter-spacing='3' transform='rotate(-28,110,50)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");background-repeat:repeat;}
+.lbox-wm-tl{position:absolute;top:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;letter-spacing:.08em;}
+.lbox-wm-tr{position:absolute;top:12px;right:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
+.lbox-wm-bl{position:absolute;bottom:12px;left:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
+.lbox-wm-br{position:absolute;bottom:12px;right:14px;font-family:var(--font-d);font-size:clamp(.65rem,1.5vw,.88rem);font-weight:700;color:rgba(255,255,255,.4);text-shadow:0 1px 6px rgba(0,0,0,.9);user-select:none;}
+.lbox-wm-center{display:none;}
+.lbox-wm-diag{display:none;}
 .lbox-close{position:fixed;top:1rem;right:1rem;z-index:420;width:42px;height:42px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);border-radius:50%;color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s;}
 .lbox-close:hover{background:rgba(0,0,0,.8);}
 .lbox-prev,.lbox-next{position:fixed;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,.6);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition);z-index:420;}
