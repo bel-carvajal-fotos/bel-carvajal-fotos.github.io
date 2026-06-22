@@ -262,7 +262,7 @@ header::before{display:none;}
   z-index:1;
 }
 .dia-card-icon{
-  font-size:1.8rem;margin-bottom:.5rem;opacity:.75;line-height:1;
+  font-size:1.8rem;margin-bottom:.5rem;opacity:.85;line-height:1;
 }
 .dia-card-date{
   font-family:var(--font-h);font-size:.58rem;font-weight:700;
@@ -1313,10 +1313,10 @@ function renderDias() {
   grid.innerHTML = '';
 
   function buildPhotoGrid(srcs) {
-    const picks = srcs.slice(0, 4).filter(Boolean);
+    const picks = srcs.slice(0, 2).filter(Boolean);
     const n = picks.length;
     if (!n) return '<div class="dia-card-empty-photos"></div>';
-    const cls = ['','n1','n2','n3','n4'][Math.min(n,4)];
+    const cls = ['','n1','n2'][Math.min(n,2)];
     const wm = '<div class="dia-card-photo-wm"></div>';
     return '<div class="dia-card-photos ' + cls + '">' +
       picks.map(src => '<div class="dia-card-photo-wrap"><img src="' + src + '" draggable="false" loading="lazy">' + wm + '</div>').join('') +
@@ -1328,7 +1328,7 @@ function renderDias() {
     const nSel = selectedPaisajes.size;
     const card = document.createElement('div');
     card.className = 'dia-card dia-card-paisajes';
-    const srcs = DB.paisajes.slice(0,4).map(p => getPhotoSrc(p)).filter(Boolean);
+    const srcs = DB.paisajes.slice(0,2).map(p => getPhotoSrc(p)).filter(Boolean);
     const nFotos = DB.paisajes.length;
     const titleTxt = currentLang === 'pt'
       ? 'LEVE SUAS FOTOS<br><span style="color:var(--accent)">DE PAISAGENS</span>'
@@ -1336,13 +1336,13 @@ function renderDias() {
     card.innerHTML =
       '<div class="dia-card-info">' +
         '<div class="dia-card-icon">' +
-          '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+          '<svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
             '<path d="M3 28L12 14l6 8 5-6 10 12H3z" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.5" stroke-linejoin="round"/>' +
             '<circle cx="26" cy="9" r="3" fill="rgba(232,83,26,.5)" stroke="rgba(232,83,26,.7)" stroke-width="1.2"/>' +
           '</svg>' +
         '</div>' +
         '<div class="dia-card-title">' + titleTxt + '</div>' +
-        '<div class="dia-card-count">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + (nSel > 0 ? ' · ' + nSel + ' sel.' : '') + '</div>' +
+        '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + (nSel > 0 ? ' · ' + nSel + ' sel.' : '') + '</div>' +
       '</div>' +
       buildPhotoGrid(srcs);
     card.onclick = () => openPaisajesGallery();
@@ -1360,11 +1360,11 @@ function renderDias() {
     card.className = 'dia-card';
     const dateLabel = formatDate(day.date);
     const nFotos = day.photos.length;
-    const srcs = day.photos.slice(0,4).map(p => p.dataUrl).filter(Boolean);
+    const srcs = day.photos.slice(0,2).map(p => p.dataUrl).filter(Boolean);
     card.innerHTML =
       '<div class="dia-card-info">' +
         '<div class="dia-card-icon">' +
-          '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+          '<svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
             '<rect x="3" y="9" width="30" height="20" rx="3" fill="rgba(232,83,26,.12)" stroke="rgba(232,83,26,.5)" stroke-width="1.5"/>' +
             '<circle cx="18" cy="19" r="6" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.4"/>' +
             '<circle cx="18" cy="19" r="3" fill="rgba(232,83,26,.35)"/>' +
@@ -1374,7 +1374,7 @@ function renderDias() {
         '</div>' +
         '<div class="dia-card-date">' + dateLabel + '</div>' +
         '<div class="dia-card-title">' + day.name + '</div>' +
-        '<div class="dia-card-count">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
+        '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
       '</div>' +
       buildPhotoGrid(srcs);
     card.onclick = () => openDay(day.id);
