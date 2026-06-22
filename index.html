@@ -227,18 +227,18 @@ header::before{display:none;}
 .logout-btn:hover{color:var(--accent);}
 
 /* CARDS DE DÍAS */
-.dias-grid{display:flex;flex-direction:column;gap:1rem;}
+.dias-grid{display:flex;flex-direction:column;gap:1.1rem;}
 .dia-card{
-  display:grid;grid-template-columns:5fr 9fr;
-  background:rgba(14,34,20,.85);
+  display:grid;grid-template-columns:220px 1fr;
+  background:rgba(14,34,20,.92);
   border:1px solid var(--border);
   border-radius:var(--radius-lg);
   overflow:hidden;cursor:pointer;
   box-shadow:var(--shadow-card);
   transition:var(--transition);
   position:relative;
+  min-height:160px;
 }
-/* Línea vertical naranja — slide-in al hover */
 .dia-card::before{
   content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
   background:var(--accent);
@@ -246,37 +246,69 @@ header::before{display:none;}
   transition:opacity .2s, transform .22s cubic-bezier(.4,0,.2,1);
 }
 .dia-card:hover{
-  border-color:rgba(232,83,26,.4);
-  transform:translateX(6px);
+  border-color:rgba(232,83,26,.45);
   box-shadow:var(--shadow-hover);
-  background:rgba(18,42,24,.95);
+  background:rgba(18,42,24,.98);
 }
 .dia-card:hover::before{opacity:1;transform:scaleY(1);}
-.dia-card-img{height:136px;width:100%;object-fit:cover;display:block;filter:brightness(.9);}
-.dia-card-img-placeholder{
-  height:136px;
-  background:linear-gradient(135deg,rgba(36,80,52,.9),rgba(20,54,32,.7));
-  display:flex;align-items:center;justify-content:center;font-size:2rem;opacity:.7;
+
+/* ── Lado izquierdo: info ── */
+.dia-card-info{
+  padding:1.4rem 1.5rem 1.4rem 1.6rem;
+  display:flex;flex-direction:column;justify-content:center;gap:.25rem;
+  background:rgba(10,26,15,.6);
+  border-right:1px solid var(--border);
+  position:relative;
+  z-index:1;
 }
-.dia-card-body{
-  padding:1.2rem 1.4rem;
-  display:flex;flex-direction:column;justify-content:center;gap:.18rem;
+.dia-card-icon{
+  font-size:1.8rem;margin-bottom:.5rem;opacity:.75;line-height:1;
 }
 .dia-card-date{
-  font-family:var(--font-h);font-size:.62rem;font-weight:700;
+  font-family:var(--font-h);font-size:.58rem;font-weight:700;
   letter-spacing:.2em;text-transform:uppercase;color:var(--accent);
-  display:flex;align-items:center;gap:.4rem;
+  display:flex;align-items:center;gap:.4rem;margin-bottom:.1rem;
 }
-.dia-card-date::before{content:'';width:16px;height:2px;background:var(--accent);border-radius:2px;}
+.dia-card-date::before{content:'';width:12px;height:2px;background:var(--accent);border-radius:2px;flex-shrink:0;}
 .dia-card-title{
-  font-family:var(--font-display);font-size:1.3rem;font-weight:900;
-  color:var(--cream);letter-spacing:-.02em;line-height:1.05;margin-top:.15rem;
+  font-family:var(--font-display);font-size:1.15rem;font-weight:900;
+  color:var(--cream);letter-spacing:-.02em;line-height:1.1;
 }
 .dia-card-count{
-  font-size:.74rem;color:var(--muted);font-family:var(--font-b);
-  display:flex;align-items:center;gap:.4rem;margin-top:.3rem;
+  font-size:.7rem;color:var(--muted);font-family:var(--font-b);
+  display:flex;align-items:center;gap:.35rem;margin-top:.2rem;
 }
-.dia-card-count::before{content:'';width:14px;height:1px;background:var(--muted);opacity:.4;}
+.dia-card-count::before{content:'';width:12px;height:1px;background:var(--muted);opacity:.4;}
+
+/* ── Lado derecho: fotos ── */
+.dia-card-photos{
+  display:grid;
+  gap:2px;
+  overflow:hidden;
+  background:rgba(8,20,12,.6);
+}
+.dia-card-photos.n1{grid-template-columns:1fr;}
+.dia-card-photos.n2{grid-template-columns:1fr 1fr;}
+.dia-card-photos.n3{grid-template-columns:1fr 1fr 1fr;}
+.dia-card-photos.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
+.dia-card-photo-wrap{
+  position:relative;overflow:hidden;
+}
+.dia-card-photo-wrap img{
+  width:100%;height:100%;object-fit:contain;object-position:center;
+  display:block;filter:brightness(.88);
+  background:#0a1a0e;
+}
+.dia-card-photo-wm{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='55'%3E%3Ctext x='50%25' y='22' text-anchor='middle' font-family='Arial,sans-serif' font-size='8' font-weight='900' fill='rgba(255,255,255,0.3)' letter-spacing='1.5' transform='rotate(-28,65,27)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3Ctext x='50%25' y='46' text-anchor='middle' font-family='Arial,sans-serif' font-size='8' font-weight='900' fill='rgba(255,255,255,0.3)' letter-spacing='1.5' transform='rotate(-28,65,27)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");
+  background-repeat:repeat;
+}
+.dia-card-empty-photos{
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,20,12,.8);
+  color:var(--muted);font-size:.75rem;font-family:var(--font-b);
+}
 .dia-card-paisajes{border-color:rgba(232,83,26,.3);}
 .dias-empty{text-align:center;padding:6rem 1rem;color:var(--muted);}
 .dias-empty .icon{font-size:2.5rem;margin-bottom:1rem;display:block;opacity:.45;}
@@ -506,8 +538,10 @@ header::before{display:none;}
 .review-note strong{color:var(--accent);}
 
 @media(max-width:480px){
-  .dia-card{grid-template-columns:1fr;}
-  .dia-card-img,.dia-card-img-placeholder{height:145px;}
+  .dia-card{grid-template-columns:160px 1fr;min-height:130px;}
+  .dia-card-info{padding:1rem 1rem 1rem 1.1rem;}
+  .dia-card-icon{font-size:1.5rem;margin-bottom:.35rem;}
+  .dia-card-title{font-size:1rem;}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .review-grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));}
   .dias-header h2{font-size:2.5rem;}
@@ -1278,20 +1312,39 @@ function renderDias() {
   const grid = document.getElementById('dias-grid');
   grid.innerHTML = '';
 
+  function buildPhotoGrid(srcs) {
+    const picks = srcs.slice(0, 4).filter(Boolean);
+    const n = picks.length;
+    if (!n) return '<div class="dia-card-empty-photos"></div>';
+    const cls = ['','n1','n2','n3','n4'][Math.min(n,4)];
+    const wm = '<div class="dia-card-photo-wm"></div>';
+    return '<div class="dia-card-photos ' + cls + '">' +
+      picks.map(src => '<div class="dia-card-photo-wrap"><img src="' + src + '" draggable="false" loading="lazy">' + wm + '</div>').join('') +
+      '</div>';
+  }
+
   // ── CARD FIJA: PAISAJES ──
   if (DB.paisajes && DB.paisajes.length > 0) {
     const nSel = selectedPaisajes.size;
     const card = document.createElement('div');
     card.className = 'dia-card dia-card-paisajes';
-    const cover = DB.paisajes[0] ? getPhotoSrc(DB.paisajes[0]) : null;
-    card.innerHTML = `
-      ${cover
-        ? `<img class="dia-card-img" src="${cover}" alt="Paisajes" draggable="false">`
-        : `<div class="dia-card-img-placeholder">🏔️</div>`}
-      <div class="dia-card-body">
-        <div class="dia-card-title">LLEVATE TUS FOTOS<br><span style="color:var(--accent);">DE PAISAJES</span></div>
-        ${nSel>0?'<div class="dia-card-count">'+nSel+' seleccionada'+(nSel!==1?'s':'')+'</div>':''}
-      </div>`;
+    const srcs = DB.paisajes.slice(0,4).map(p => getPhotoSrc(p)).filter(Boolean);
+    const nFotos = DB.paisajes.length;
+    const titleTxt = currentLang === 'pt'
+      ? 'LEVE SUAS FOTOS<br><span style="color:var(--accent)">DE PAISAGENS</span>'
+      : 'LLEVATE TUS FOTOS<br><span style="color:var(--accent)">DE PAISAJES</span>';
+    card.innerHTML =
+      '<div class="dia-card-info">' +
+        '<div class="dia-card-icon">' +
+          '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+            '<path d="M3 28L12 14l6 8 5-6 10 12H3z" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.5" stroke-linejoin="round"/>' +
+            '<circle cx="26" cy="9" r="3" fill="rgba(232,83,26,.5)" stroke="rgba(232,83,26,.7)" stroke-width="1.2"/>' +
+          '</svg>' +
+        '</div>' +
+        '<div class="dia-card-title">' + titleTxt + '</div>' +
+        '<div class="dia-card-count">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + (nSel > 0 ? ' · ' + nSel + ' sel.' : '') + '</div>' +
+      '</div>' +
+      buildPhotoGrid(srcs);
     card.onclick = () => openPaisajesGallery();
     grid.appendChild(card);
   }
@@ -1299,22 +1352,31 @@ function renderDias() {
   // ── DÍAS DE ESQUÍ ──
   const days = DB.days.filter(d => d.photos && d.photos.length > 0);
   if (!days.length && (!DB.paisajes || !DB.paisajes.length)) {
-    grid.innerHTML = `<div class="dias-empty"><div class="icon">🏔️</div><p>Todavía no hay fotos cargadas.<br>¡Volvé pronto!</p></div>`;
+    grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>Todavía no hay fotos cargadas.<br>¡Volvé pronto!</p></div>';
     return;
   }
   [...days].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(day => {
     const card = document.createElement('div');
     card.className = 'dia-card';
-    const cover = day.photos[0]?.dataUrl;
     const dateLabel = formatDate(day.date);
-    card.innerHTML = `
-      ${cover
-        ? `<img class="dia-card-img" src="${cover}" alt="${day.name}" draggable="false">`
-        : `<div class="dia-card-img-placeholder">🎿</div>`}
-      <div class="dia-card-body">
-        <div class="dia-card-date">${dateLabel}</div>
-        <div class="dia-card-title">${day.name}</div>
-      </div>`;
+    const nFotos = day.photos.length;
+    const srcs = day.photos.slice(0,4).map(p => p.dataUrl).filter(Boolean);
+    card.innerHTML =
+      '<div class="dia-card-info">' +
+        '<div class="dia-card-icon">' +
+          '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+            '<rect x="3" y="9" width="30" height="20" rx="3" fill="rgba(232,83,26,.12)" stroke="rgba(232,83,26,.5)" stroke-width="1.5"/>' +
+            '<circle cx="18" cy="19" r="6" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.4"/>' +
+            '<circle cx="18" cy="19" r="3" fill="rgba(232,83,26,.35)"/>' +
+            '<path d="M12 9V8a2 2 0 012-2h8a2 2 0 012 2v1" stroke="rgba(232,83,26,.5)" stroke-width="1.4" stroke-linecap="round"/>' +
+            '<circle cx="28" cy="13" r="1.5" fill="rgba(232,83,26,.5)"/>' +
+          '</svg>' +
+        '</div>' +
+        '<div class="dia-card-date">' + dateLabel + '</div>' +
+        '<div class="dia-card-title">' + day.name + '</div>' +
+        '<div class="dia-card-count">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
+      '</div>' +
+      buildPhotoGrid(srcs);
     card.onclick = () => openDay(day.id);
     grid.appendChild(card);
   });
