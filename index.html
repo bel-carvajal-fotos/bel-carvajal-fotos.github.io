@@ -41,11 +41,27 @@ img{pointer-events:none;-webkit-user-drag:none;}
 body{
   font-family:var(--font-b);
   background-color:var(--bg);
-  background-image: radial-gradient(rgba(242,234,211,.04) 1px, transparent 1px);
-  background-size: 28px 28px;
   color:var(--text);
   min-height:100vh;
   overflow-x:hidden;
+}
+/* Canvas de nieve global — siempre detrás de todo */
+#global-snow{
+  position:fixed;inset:0;
+  width:100%;height:100%;
+  pointer-events:none;
+  z-index:0;
+}
+/* Todo el contenido por encima del canvas */
+header,
+.view,
+.review-page,
+.cart-sheet,
+.admin-panel,
+.admin-overlay,
+#confirm-modal{
+  position:relative;
+  z-index:1;
 }
 
 /* ══ HEADER ══ */
@@ -102,6 +118,9 @@ header::before{display:none;}
   .h-right{gap:.3rem;}
   .lang-btn{padding:.2rem .35rem;font-size:.78rem;}
   .ig-btn{width:34px;height:34px;}
+  .dias-hero{height:210px;}
+  .hero-title{font-size:2rem;}
+  .hero-cta{font-size:.72rem;padding:.5rem 1.1rem;}
 }
 
 /* ══ VISTAS ══ */
@@ -113,36 +132,89 @@ header::before{display:none;}
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:2.5rem 1rem;
   position:relative;overflow:hidden;
+  background:#0f2419;
 }
-/* Orbe naranja difuminado */
+/* Canvas de nieve — insertado por JS */
+.auth-snow-canvas{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;
+}
+/* Montañas detrás de la card */
 .auth-wrap::before{
   content:'';position:absolute;
-  width:600px;height:600px;
-  background:radial-gradient(circle,rgba(232,83,26,.14) 0%,transparent 60%);
-  top:-150px;right:-150px;pointer-events:none;border-radius:50%;
+  bottom:0;left:0;right:0;height:45%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 220' preserveAspectRatio='none'%3E%3Cpolygon points='0,220 120,70 240,130 400,20 560,100 720,30 880,90 1040,15 1200,60 1200,220' fill='%232a5c3a' opacity='.4'/%3E%3Cpolygon points='0,220 80,100 200,145 340,45 500,115 660,35 820,95 980,25 1120,70 1200,50 1200,220' fill='%231a3d2b'/%3E%3C/svg%3E")
+    no-repeat bottom center / cover;
+  pointer-events:none;z-index:0;
 }
 .auth-wrap::after{
   content:'';position:absolute;
-  width:400px;height:400px;
-  background:radial-gradient(circle,rgba(232,83,26,.07) 0%,transparent 65%);
-  bottom:-100px;left:-100px;pointer-events:none;border-radius:50%;
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(232,83,26,.13) 0%,transparent 62%);
+  top:-160px;right:-140px;pointer-events:none;border-radius:50%;
+  animation:auth-orb-drift 8s ease-in-out infinite;z-index:0;
+}
+@keyframes auth-orb-drift{
+  0%,100%{transform:translate(0,0) scale(1);}
+  33%{transform:translate(-20px,15px) scale(1.05);}
+  66%{transform:translate(12px,-10px) scale(.96);}
 }
 .auth-card{
-  background:rgba(14,38,22,.88);
-  border:1px solid var(--border);
-  border-radius:var(--radius-lg);
+  background:rgba(10,28,16,.82);
+  border:1px solid rgba(242,234,211,.13);
+  border-radius:16px;
   padding:2.8rem 2.2rem;
   width:100%;max-width:420px;
-  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  position:relative;z-index:1;
-  box-shadow:0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(232,83,26,.08);
+  backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+  position:relative;z-index:2;
+  box-shadow:0 32px 80px rgba(0,0,0,.75), 0 0 0 1px rgba(232,83,26,.1);
+  animation:card-appear .55s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes card-appear{
+  from{opacity:0;transform:translateY(22px);}
+  to{opacity:1;transform:translateY(0);}
 }
 /* Línea gradiente naranja en el tope de la card */
 .auth-card::before{
   content:'';position:absolute;
-  top:0;left:10%;right:10%;height:1px;
-  background:linear-gradient(90deg,transparent,var(--accent) 40%,var(--accent) 60%,transparent);
-  border-radius:1px;
+  top:0;left:8%;right:8%;height:1.5px;
+  background:linear-gradient(90deg,transparent,var(--accent) 35%,#F06030 65%,transparent);
+  border-radius:2px;
+}
+/* Orbe naranja animado dentro de la card */
+.auth-card-orb{
+  position:absolute;top:-60px;right:-50px;
+  width:180px;height:180px;
+  background:radial-gradient(circle,rgba(232,83,26,.22) 0%,transparent 65%);
+  border-radius:50%;pointer-events:none;
+  animation:inner-orb 5s ease-in-out infinite;
+}
+@keyframes inner-orb{
+  0%,100%{transform:scale(1);opacity:.8;}
+  50%{transform:scale(1.25);opacity:1;}
+}
+/* Scanner en los inputs */
+.field{display:flex;flex-direction:column;gap:.28rem;margin-bottom:1.1rem;position:relative;}
+.field-scanner{
+  position:absolute;bottom:0;left:0;
+  height:2px;width:0;
+  background:linear-gradient(90deg,transparent,var(--accent),#F06030,transparent);
+  border-radius:2px;z-index:2;pointer-events:none;
+  animation:scanner-idle 4s ease-in-out infinite;
+}
+@keyframes scanner-idle{
+  0%{width:0;left:0;opacity:.5;}
+  40%{width:60%;left:0;opacity:.8;}
+  80%{width:0;left:100%;opacity:.5;}
+  100%{width:0;left:0;opacity:.5;}
+}
+.field input:focus ~ .field-scanner{
+  animation:scanner-active .7s ease forwards;
+}
+@keyframes scanner-active{
+  0%{width:0;left:0;}
+  100%{width:100%;left:0;}
 }
 .auth-card h2{
   font-family:var(--font-display);
@@ -185,31 +257,114 @@ header::before{display:none;}
 .auth-error{font-size:.75rem;color:#e07755;min-height:1rem;margin-top:.3rem;}
 
 /* ══ VISTA DÍAS ══ */
-.dias-wrap{max-width:660px;margin:0 auto;padding:3.5rem 1.4rem 6rem;}
-.dias-eyebrow{
-  display:inline-flex;align-items:center;gap:.6rem;
-  font-family:var(--font-h);font-size:.62rem;font-weight:700;
-  letter-spacing:.3em;text-transform:uppercase;color:var(--accent);
-  margin-bottom:.8rem;
+.dias-wrap{max-width:660px;margin:0 auto;padding:0 1.4rem 6rem;}
+
+/* ── HERO ── */
+.dias-hero{
+  position:relative;
+  width:100vw;
+  left:50%;transform:translateX(-50%);
+  height:260px;
+  overflow:hidden;
+  margin-bottom:2.8rem;
+  background:#0f2419;
 }
-.dias-eyebrow::before,.dias-eyebrow::after{
-  content:'';width:28px;height:1px;background:var(--accent);opacity:.7;
+.hero-mtn{
+  position:absolute;bottom:0;left:0;width:100%;
+  pointer-events:none;
+}
+.hero-mtn-back{
+  bottom:18px;opacity:.35;
+  animation:mtn-drift 22s ease-in-out infinite alternate;
+}
+.hero-mtn-front{
+  bottom:0;opacity:.82;
+  animation:mtn-drift 15s ease-in-out infinite alternate-reverse;
+}
+@keyframes mtn-drift{
+  from{transform:translateX(-10px);}
+  to{transform:translateX(10px);}
+}
+.hero-snow{
+  position:absolute;inset:0;
+  pointer-events:none;z-index:2;
+}
+.hero-content{
+  position:absolute;inset:0;z-index:3;
+  display:flex;align-items:center;
+  padding:0 clamp(1.2rem,5vw,3.5rem);
+  gap:2rem;
+}
+.hero-text{
+  flex:1;
+}
+.hero-eyebrow{
+  font-family:var(--font-h);font-size:.6rem;font-weight:700;
+  letter-spacing:.28em;text-transform:uppercase;color:#7FB090;
+  display:inline-flex;align-items:center;gap:.5rem;
+  margin-bottom:.5rem;
+  animation:hero-fadein .7s ease both;
+}
+.hero-eyebrow::before{content:'';width:18px;height:1px;background:#7FB090;opacity:.6;}
+.hero-title{
+  font-family:var(--font-display);font-size:clamp(1.9rem,6vw,3.2rem);
+  font-weight:900;line-height:.92;letter-spacing:-.03em;
+  color:#F2EAD3;
+  animation:hero-fadein .7s .12s ease both;
+}
+.hero-title span{color:#E8531A;display:block;}
+.hero-cta{
+  display:inline-flex;align-items:center;gap:.55rem;
+  margin-top:1rem;
+  background:#E8531A;color:#F2EAD3;
+  font-family:var(--font-d);font-size:.8rem;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;
+  border:none;border-radius:50px;
+  padding:.6rem 1.3rem;cursor:pointer;
+  box-shadow:0 4px 20px rgba(232,83,26,.45);
+  transition:transform .2s,box-shadow .2s;
+  animation:hero-fadein .7s .25s ease both;
+}
+.hero-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(232,83,26,.6);}
+.hero-cta svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+@keyframes hero-fadein{
+  from{opacity:0;transform:translateY(12px);}
+  to{opacity:1;transform:translateY(0);}
+}
+/* velo inferior del hero para transición suave hacia el bg */
+.hero-fade{
+  position:absolute;bottom:0;left:0;right:0;height:60px;z-index:4;
+  background:linear-gradient(to bottom,transparent,#1A3D2B);
+  pointer-events:none;
+}
+/* ocultar hero en vista galería/otros */
+#v-dias .dias-hero{display:flex;}
+.hero-snowflake{
+  position:absolute;
+  border-radius:50%;
+  background:rgba(242,234,211,.75);
+  animation:snowfall linear infinite;
+  pointer-events:none;
+}
+@keyframes snowfall{
+  0%{transform:translateY(-10px) translateX(0);}
+  100%{transform:translateY(280px) translateX(var(--drift));}
+}
+.dias-eyebrow{
+  display:none;
 }
 .dias-header{
-  display:flex;align-items:flex-start;justify-content:space-between;
+  display:flex;align-items:center;justify-content:flex-end;
   margin-bottom:.5rem;flex-wrap:wrap;gap:1rem;
+  padding-top:1.6rem;
 }
-.dias-header h2{
-  font-family:var(--font-display);
-  font-size:3.6rem;font-weight:900;
-  color:var(--cream);letter-spacing:-.03em;line-height:.88;
+.dias-header h2{display:none;}
+.dias-header-title{
+  font-family:var(--font-h);font-size:.65rem;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  flex:1;
 }
-.dias-header h2 span{
-  color:var(--accent);
-  display:block;
-  font-size:4rem;
-}
-.dias-desc{font-size:.83rem;color:var(--muted);margin-bottom:2.8rem;line-height:1.65;}
+.dias-desc{font-size:.83rem;color:var(--muted);margin-bottom:1.4rem;margin-top:.2rem;line-height:1.65;}
 .user-badge{
   display:flex;align-items:center;gap:.45rem;
   background:rgba(255,255,255,.05);
@@ -227,51 +382,94 @@ header::before{display:none;}
 .logout-btn:hover{color:var(--accent);}
 
 /* CARDS DE DÍAS */
-.dias-grid{display:flex;flex-direction:column;gap:1.1rem;}
+/* Paisajes ocupa el ancho completo, los días van en grilla 2 col */
+.dias-grid{display:flex;flex-direction:column;gap:.9rem;}
+.dias-ski-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:.9rem;
+}
+/* Card paisajes — horizontal, ancho completo (sin cambios) */
 .dia-card{
-  display:grid;grid-template-columns:220px 1fr;
-  background:rgba(14,34,20,.92);
-  border:1px solid var(--border);
-  border-radius:var(--radius-lg);
+  display:grid;grid-template-columns:1fr 140px;
+  background:rgba(10,26,14,.9);
+  border:1px solid rgba(242,234,211,.09);
+  border-radius:14px;
   overflow:hidden;cursor:pointer;
-  box-shadow:var(--shadow-card);
-  transition:var(--transition);
+  box-shadow:0 2px 16px rgba(0,0,0,.4);
+  transition:transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s, border-color .22s;
+  position:relative;
+  min-height:110px;
+}
+/* Cards de días en la grilla — más compactas y verticales */
+.dia-card-ski{
+  display:flex;flex-direction:column;
+  background:rgba(10,26,14,.9);
+  border:1px solid rgba(242,234,211,.09);
+  border-radius:14px;
+  overflow:hidden;cursor:pointer;
+  box-shadow:0 2px 16px rgba(0,0,0,.4);
+  transition:transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s, border-color .22s;
   position:relative;
   min-height:160px;
 }
-.dia-card::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
-  background:var(--accent);
-  opacity:0;transform:scaleY(.5);transform-origin:center;
-  transition:opacity .2s, transform .22s cubic-bezier(.4,0,.2,1);
+.dia-card:hover,
+.dia-card-ski:hover{
+  transform:translateY(-3px);
+  border-color:rgba(232,83,26,.35);
+  box-shadow:0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(232,83,26,.12);
 }
-.dia-card:hover{
-  border-color:rgba(232,83,26,.45);
-  box-shadow:var(--shadow-hover);
-  background:rgba(18,42,24,.98);
+/* visual en la card ski: arriba, ocupa ~55% de la altura */
+.dia-card-ski .dia-card-visual{
+  flex:0 0 95px;
+  width:100%;
 }
-.dia-card:hover::before{opacity:1;transform:scaleY(1);}
+.dia-card-ski .dia-card-visual::after{
+  top:0;left:0;right:0;bottom:0;width:100%;height:22px;
+  background:linear-gradient(to bottom,rgba(10,26,14,.5),transparent);
+}
+/* info debajo del visual en la card ski */
+.dia-card-ski .dia-card-info{
+  padding:.75rem .9rem .8rem;
+  flex:1;
+  gap:.15rem;
+}
+.dia-card-ski .dia-card-title{font-size:.92rem;}
+.dia-card-ski .dia-card-date{font-size:.5rem;}
+.dia-card-ski .dia-card-enter{margin-top:.3rem;font-size:.52rem;}
 
 /* ── Lado izquierdo: info ── */
 .dia-card-info{
-  padding:1.4rem 1.5rem 1.4rem 1.6rem;
-  display:flex;flex-direction:column;justify-content:center;gap:.25rem;
-  background:rgba(10,26,15,.6);
-  border-right:1px solid var(--border);
-  position:relative;
-  z-index:1;
+  padding:1.1rem 1.2rem 1.1rem 1.4rem;
+  display:flex;flex-direction:column;justify-content:center;gap:.22rem;
+  position:relative;z-index:1;
+}
+/* chip de categoría */
+.dia-card-chip{
+  display:inline-flex;align-items:center;gap:.3rem;
+  background:rgba(127,176,144,.1);
+  border:1px solid rgba(127,176,144,.2);
+  border-radius:20px;padding:.18rem .55rem;
+  font-family:var(--font-h);font-size:.52rem;font-weight:700;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:.15rem;width:fit-content;
+}
+.dia-card-chip-paisajes{
+  background:rgba(232,83,26,.1);
+  border-color:rgba(232,83,26,.22);
+  color:var(--accent);
 }
 .dia-card-icon{
-  font-size:1.8rem;margin-bottom:.5rem;opacity:.85;line-height:1;
+  font-size:1.8rem;margin-bottom:.35rem;opacity:.85;line-height:1;
 }
 .dia-card-date{
-  font-family:var(--font-h);font-size:.58rem;font-weight:700;
-  letter-spacing:.2em;text-transform:uppercase;color:var(--accent);
-  display:flex;align-items:center;gap:.4rem;margin-bottom:.1rem;
+  font-family:var(--font-h);font-size:.56rem;font-weight:700;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--accent);
+  display:flex;align-items:center;gap:.35rem;margin-bottom:.08rem;
 }
-.dia-card-date::before{content:'';width:12px;height:2px;background:var(--accent);border-radius:2px;flex-shrink:0;}
+.dia-card-date::before{content:'';width:10px;height:2px;background:var(--accent);border-radius:2px;flex-shrink:0;}
 .dia-card-title{
-  font-family:var(--font-display);font-size:1.15rem;font-weight:900;
+  font-family:var(--font-display);font-size:1.08rem;font-weight:900;
   color:var(--cream);letter-spacing:-.02em;line-height:1.1;
 }
 .dia-card-count{
@@ -279,37 +477,82 @@ header::before{display:none;}
   display:flex;align-items:center;gap:.35rem;margin-top:.2rem;
 }
 .dia-card-count::before{content:'';width:12px;height:1px;background:var(--muted);opacity:.4;}
+/* "Entrar ›" parpadeante */
+.dia-card-enter{
+  font-family:var(--font-h);font-size:.58rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(232,83,26,.65);
+  display:flex;align-items:center;gap:.25rem;
+  margin-top:.4rem;
+  animation:enter-blink 2.4s ease-in-out infinite;
+}
+@keyframes enter-blink{
+  0%,100%{opacity:.65;}
+  50%{opacity:1;color:rgba(232,83,26,1);}
+}
 
-/* ── Lado derecho: fotos ── */
+/* ── Lado derecho: visual con montañas + nieve ── */
+.dia-card-visual{
+  position:relative;overflow:hidden;
+  background:#0a1a0e;
+  flex-shrink:0;
+}
+/* montañas SVG fondo */
+.dia-card-mtn{
+  position:absolute;bottom:0;left:0;width:100%;
+  pointer-events:none;
+}
+.dia-card-mtn-back{
+  bottom:8px;opacity:.38;
+  animation:card-mtn-drift 18s ease-in-out infinite alternate;
+}
+.dia-card-mtn-front{
+  bottom:0;opacity:.85;
+  animation:card-mtn-drift 12s ease-in-out infinite alternate-reverse;
+}
+@keyframes card-mtn-drift{
+  from{transform:translateX(-5px);}
+  to{transform:translateX(5px);}
+}
+/* nieve CSS en la miniatura */
+.dia-card-snow{
+  position:absolute;inset:0;z-index:2;pointer-events:none;
+  background-image:
+    radial-gradient(circle,rgba(242,234,211,.85) 1px,transparent 1px),
+    radial-gradient(circle,rgba(242,234,211,.55) 1.5px,transparent 1.5px),
+    radial-gradient(circle,rgba(242,234,211,.4) 1px,transparent 1px);
+  background-size:22px 28px, 35px 38px, 18px 22px;
+  background-position:0 0, 11px 14px, 6px 9px;
+  animation:card-snow-fall 6s linear infinite;
+  opacity:.45;
+}
+.dia-card:hover .dia-card-snow{opacity:.65;}
+@keyframes card-snow-fall{
+  from{background-position:0 -28px, 11px -24px, 6px -18px;}
+  to{background-position:0 28px, 11px 38px, 6px 22px;}
+}
+/* fotos reales encima de las montañas (cuando existen) */
 .dia-card-photos{
-  display:grid;
-  gap:2px;
-  overflow:hidden;
-  background:rgba(8,20,12,.6);
+  position:absolute;inset:0;z-index:3;
+  display:grid;gap:1px;overflow:hidden;
 }
 .dia-card-photos.n1{grid-template-columns:1fr;}
 .dia-card-photos.n2{grid-template-columns:1fr 1fr;}
-.dia-card-photos.n3{grid-template-columns:1fr 1fr 1fr;}
-.dia-card-photos.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;}
-.dia-card-photo-wrap{
-  position:relative;overflow:hidden;
-}
+.dia-card-photo-wrap{position:relative;overflow:hidden;}
 .dia-card-photo-wrap img{
-  width:100%;height:100%;object-fit:contain;object-position:center;
-  display:block;filter:brightness(.88);
-  background:#0a1a0e;
+  width:100%;height:100%;object-fit:cover;object-position:center;
+  display:block;filter:brightness(.82);
 }
-.dia-card-photo-wm{
-  position:absolute;inset:0;pointer-events:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='55'%3E%3Ctext x='50%25' y='22' text-anchor='middle' font-family='Arial,sans-serif' font-size='8' font-weight='900' fill='rgba(255,255,255,0.3)' letter-spacing='1.5' transform='rotate(-28,65,27)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3Ctext x='50%25' y='46' text-anchor='middle' font-family='Arial,sans-serif' font-size='8' font-weight='900' fill='rgba(255,255,255,0.3)' letter-spacing='1.5' transform='rotate(-28,65,27)'%3EBEL CARVAJAL FOTOS%3C/text%3E%3C/svg%3E");
-  background-repeat:repeat;
+.dia-card-photo-wm{display:none;}
+.dia-card-empty-photos{display:none;}
+/* gradiente lateral que funde la foto con el lado info */
+.dia-card-visual::after{
+  content:'';position:absolute;
+  top:0;left:0;bottom:0;width:28px;z-index:4;
+  background:linear-gradient(to right,rgba(10,26,14,.9),transparent);
+  pointer-events:none;
 }
-.dia-card-empty-photos{
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(8,20,12,.8);
-  color:var(--muted);font-size:.75rem;font-family:var(--font-b);
-}
-.dia-card-paisajes{border-color:rgba(232,83,26,.3);}
+.dia-card-paisajes{border-color:rgba(232,83,26,.22);}
 .dias-empty{text-align:center;padding:6rem 1rem;color:var(--muted);}
 .dias-empty .icon{font-size:2.5rem;margin-bottom:1rem;display:block;opacity:.45;}
 .dias-empty p{font-size:.88rem;line-height:1.7;}
@@ -538,13 +781,13 @@ header::before{display:none;}
 .review-note strong{color:var(--accent);}
 
 @media(max-width:480px){
-  .dia-card{grid-template-columns:160px 1fr;min-height:130px;}
-  .dia-card-info{padding:1rem 1rem 1rem 1.1rem;}
-  .dia-card-icon{font-size:1.5rem;margin-bottom:.35rem;}
-  .dia-card-title{font-size:1rem;}
+  .dia-card{grid-template-columns:1fr 110px;min-height:100px;}
+  .dia-card-info{padding:.85rem .9rem .85rem 1rem;}
+  .dia-card-title{font-size:.98rem;}
+  .dia-card-date{font-size:.5rem;}
+  .dias-ski-grid{grid-template-columns:1fr;}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .review-grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));}
-  .dias-header h2{font-size:2.5rem;}
   .dias-wrap{padding:2.5rem 1rem 5rem;}
 }
 /* ══ SELECTOR DE IDIOMA ══ */
@@ -583,6 +826,9 @@ header::before{display:none;}
 </head>
 <body>
 
+<!-- ══ NIEVE GLOBAL ══ -->
+<canvas id="global-snow"></canvas>
+
 <!-- ══ HEADER ══ -->
 <header>
   <div class="h-left">
@@ -612,13 +858,16 @@ header::before{display:none;}
 
 <!-- ══ VISTA: LOGIN ══ -->
 <div class="view active" id="v-login">
-  <div class="auth-wrap">
+  <div class="auth-wrap" id="auth-wrap-login">
+    <canvas class="auth-snow-canvas" id="auth-snow-login"></canvas>
     <div class="auth-card">
+      <div class="auth-card-orb"></div>
       <h2>Bienvenidos 👋</h2>
       <p>Ingresá tu email para ver tus fotos del día en el Cerro Catedral</p>
       <div class="field">
         <label>Email</label>
         <input type="text" inputmode="email" id="login-email" placeholder="tu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')doLogin()">
+        <div class="field-scanner"></div>
       </div>
       <div class="auth-error" id="login-err"></div>
       <button class="btn-acc" onclick="doLogin()">Ingresar</button>
@@ -632,17 +881,21 @@ header::before{display:none;}
 
 <!-- ══ VISTA: REGISTRO ══ -->
 <div class="view" id="v-register">
-  <div class="auth-wrap">
+  <div class="auth-wrap" id="auth-wrap-register">
+    <canvas class="auth-snow-canvas" id="auth-snow-register"></canvas>
     <div class="auth-card">
+      <div class="auth-card-orb"></div>
       <h2>Crear cuenta</h2>
       <p>Solo necesitás tu nombre completo y email — sin contraseña</p>
       <div class="field">
         <label>Nombre y Apellido</label>
         <input type="text" id="reg-name" placeholder="Ana García" autocomplete="name" onkeydown="if(event.key==='Enter')doRegister()">
+        <div class="field-scanner"></div>
       </div>
       <div class="field">
         <label>Email</label>
         <input type="text" inputmode="email" id="reg-email" placeholder="tu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')doRegister()">
+        <div class="field-scanner"></div>
       </div>
       <div class="auth-error" id="reg-err"></div>
       <button class="btn-acc" onclick="doRegister()">Entrar</button>
@@ -653,10 +906,38 @@ header::before{display:none;}
 
 <!-- ══ VISTA: DÍAS ══ -->
 <div class="view" id="v-dias">
+
+  <!-- HERO MONTAÑAS -->
+  <div class="dias-hero" id="dias-hero">
+    <!-- montaña trasera -->
+    <svg class="hero-mtn hero-mtn-back" viewBox="0 0 1200 160" preserveAspectRatio="none" height="160" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="0,160 100,60 200,110 340,20 480,90 600,30 720,80 860,10 980,70 1100,25 1200,55 1200,160" fill="#2a5c3a"/>
+    </svg>
+    <!-- montaña delantera -->
+    <svg class="hero-mtn hero-mtn-front" viewBox="0 0 1200 160" preserveAspectRatio="none" height="160" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="0,160 80,80 180,120 300,35 440,100 560,20 680,75 800,15 920,65 1040,30 1160,55 1200,40 1200,160" fill="#1a3d2b"/>
+    </svg>
+    <!-- nieve canvas -->
+    <canvas class="hero-snow" id="hero-snow-canvas"></canvas>
+    <!-- velo de transición -->
+    <div class="hero-fade"></div>
+    <!-- contenido -->
+    <div class="hero-content">
+      <div class="hero-text">
+        <div class="hero-eyebrow">Cerro Catedral · Bariloche</div>
+        <div class="hero-title">Bel <span>Carvajal</span></div>
+        <button class="hero-cta" onclick="document.getElementById('dias-grid').scrollIntoView({behavior:'smooth'})">
+          Ver mis fotos
+          <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="dias-wrap">
     <div id="dias-eyebrow" class="dias-eyebrow">Cerro Catedral</div>
     <div class="dias-header">
-      <h2>BUSCÁ TUS <span>FOTOS</span></h2>
+      <span class="dias-header-title" id="txt-dias-section">Tus días</span>
       <div class="user-badge">
         <div class="user-avatar" id="user-avatar-initial">A</div>
         <span class="user-name-badge" id="user-display-name">Ana</span>
@@ -1312,39 +1593,52 @@ function renderDias() {
   const grid = document.getElementById('dias-grid');
   grid.innerHTML = '';
 
-  function buildPhotoGrid(srcs) {
+  const MTN_BACK  = "<svg class='dia-card-mtn dia-card-mtn-back'  viewBox='0 0 140 110' preserveAspectRatio='none' height='110' xmlns='http://www.w3.org/2000/svg'><polygon points='0,110 18,45 38,70 62,12 86,55 108,22 130,42 140,32 140,110' fill='%232a5c3a' opacity='.5'/></svg>";
+  const MTN_FRONT = "<svg class='dia-card-mtn dia-card-mtn-front' viewBox='0 0 140 110' preserveAspectRatio='none' height='110' xmlns='http://www.w3.org/2000/svg'><polygon points='0,110 14,58 34,80 58,25 82,65 106,30 128,52 140,42 140,110' fill='%231a3d2b'/></svg>";
+
+  function buildVisual(srcs) {
     const picks = srcs.slice(0, 2).filter(Boolean);
     const n = picks.length;
-    if (!n) return '<div class="dia-card-empty-photos"></div>';
-    const cls = ['','n1','n2'][Math.min(n,2)];
-    const wm = '<div class="dia-card-photo-wm"></div>';
-    return '<div class="dia-card-photos ' + cls + '">' +
-      picks.map(src => '<div class="dia-card-photo-wrap"><img src="' + src + '" draggable="false" loading="lazy">' + wm + '</div>').join('') +
-      '</div>';
+    let photosHTML = '';
+    if (n) {
+      const cls = n === 1 ? 'n1' : 'n2';
+      photosHTML = '<div class="dia-card-photos ' + cls + '">' +
+        picks.map(src => '<div class="dia-card-photo-wrap"><img src="' + src + '" draggable="false" loading="lazy"></div>').join('') +
+        '</div>';
+    }
+    return '<div class="dia-card-visual">' +
+      MTN_BACK + MTN_FRONT +
+      '<div class="dia-card-snow"></div>' +
+      photosHTML +
+    '</div>';
   }
+
+  const chipSkiES  = '<span class="dia-card-chip">⛷ Esquí</span>';
+  const chipSkiPT  = '<span class="dia-card-chip">⛷ Esqui</span>';
+  const chipPaisES = '<span class="dia-card-chip dia-card-chip-paisajes">🏔 Paisajes</span>';
+  const chipPaisPT = '<span class="dia-card-chip dia-card-chip-paisajes">🏔 Paisagens</span>';
+  const enterES    = '<div class="dia-card-enter">Ver galería ›</div>';
+  const enterPT    = '<div class="dia-card-enter">Ver galeria ›</div>';
+  const isPt       = currentLang === 'pt';
 
   // ── CARD FIJA: PAISAJES ──
   if (DB.paisajes && DB.paisajes.length > 0) {
-    const nSel = selectedPaisajes.size;
-    const card = document.createElement('div');
+    const nSel   = selectedPaisajes.size;
+    const card   = document.createElement('div');
     card.className = 'dia-card dia-card-paisajes';
-    const srcs = DB.paisajes.slice(0,2).map(p => getPhotoSrc(p)).filter(Boolean);
+    const srcs   = DB.paisajes.slice(0,2).map(p => getPhotoSrc(p)).filter(Boolean);
     const nFotos = DB.paisajes.length;
-    const titleTxt = currentLang === 'pt'
+    const titleTxt = isPt
       ? 'LEVE SUAS FOTOS<br><span style="color:var(--accent)">DE PAISAGENS</span>'
       : 'LLEVATE TUS FOTOS<br><span style="color:var(--accent)">DE PAISAJES</span>';
     card.innerHTML =
       '<div class="dia-card-info">' +
-        '<div class="dia-card-icon">' +
-          '<svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-            '<path d="M3 28L12 14l6 8 5-6 10 12H3z" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.5" stroke-linejoin="round"/>' +
-            '<circle cx="26" cy="9" r="3" fill="rgba(232,83,26,.5)" stroke="rgba(232,83,26,.7)" stroke-width="1.2"/>' +
-          '</svg>' +
-        '</div>' +
+        (isPt ? chipPaisPT : chipPaisES) +
         '<div class="dia-card-title">' + titleTxt + '</div>' +
         '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + (nSel > 0 ? ' · ' + nSel + ' sel.' : '') + '</div>' +
+        (isPt ? enterPT : enterES) +
       '</div>' +
-      buildPhotoGrid(srcs);
+      buildVisual(srcs);
     card.onclick = () => openPaisajesGallery();
     grid.appendChild(card);
   }
@@ -1352,34 +1646,32 @@ function renderDias() {
   // ── DÍAS DE ESQUÍ ──
   const days = DB.days.filter(d => d.photos && d.photos.length > 0);
   if (!days.length && (!DB.paisajes || !DB.paisajes.length)) {
-    grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>Todavía no hay fotos cargadas.<br>¡Volvé pronto!</p></div>';
+    grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>' + (isPt ? 'Ainda não há fotos carregadas.<br>Volte em breve!' : 'Todavía no hay fotos cargadas.<br>¡Volvé pronto!') + '</p></div>';
     return;
   }
-  [...days].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(day => {
-    const card = document.createElement('div');
-    card.className = 'dia-card';
-    const dateLabel = formatDate(day.date);
-    const nFotos = day.photos.length;
-    const srcs = day.photos.slice(0,2).map(p => p.dataUrl).filter(Boolean);
-    card.innerHTML =
-      '<div class="dia-card-info">' +
-        '<div class="dia-card-icon">' +
-          '<svg width="52" height="52" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-            '<rect x="3" y="9" width="30" height="20" rx="3" fill="rgba(232,83,26,.12)" stroke="rgba(232,83,26,.5)" stroke-width="1.5"/>' +
-            '<circle cx="18" cy="19" r="6" fill="rgba(232,83,26,.18)" stroke="rgba(232,83,26,.6)" stroke-width="1.4"/>' +
-            '<circle cx="18" cy="19" r="3" fill="rgba(232,83,26,.35)"/>' +
-            '<path d="M12 9V8a2 2 0 012-2h8a2 2 0 012 2v1" stroke="rgba(232,83,26,.5)" stroke-width="1.4" stroke-linecap="round"/>' +
-            '<circle cx="28" cy="13" r="1.5" fill="rgba(232,83,26,.5)"/>' +
-          '</svg>' +
-        '</div>' +
-        '<div class="dia-card-date">' + dateLabel + '</div>' +
-        '<div class="dia-card-title">' + day.name + '</div>' +
-        '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
-      '</div>' +
-      buildPhotoGrid(srcs);
-    card.onclick = () => openDay(day.id);
-    grid.appendChild(card);
-  });
+  if (days.length) {
+    const skiGrid = document.createElement('div');
+    skiGrid.className = 'dias-ski-grid';
+    [...days].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(day => {
+      const card = document.createElement('div');
+      card.className = 'dia-card-ski';
+      const dateLabel = formatDate(day.date);
+      const nFotos    = day.photos.length;
+      const srcs      = day.photos.slice(0,2).map(p => p.dataUrl).filter(Boolean);
+      card.innerHTML =
+        buildVisual(srcs) +
+        '<div class="dia-card-info">' +
+          (isPt ? chipSkiPT : chipSkiES) +
+          '<div class="dia-card-date">' + dateLabel + '</div>' +
+          '<div class="dia-card-title">' + day.name + '</div>' +
+          '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
+          (isPt ? enterPT : enterES) +
+        '</div>';
+      card.onclick = () => openDay(day.id);
+      skiGrid.appendChild(card);
+    });
+    grid.appendChild(skiGrid);
+  }
 }
 
 function formatDate(str) {
@@ -2614,6 +2906,8 @@ function applyLang() {
   if (diasTitle) diasTitle.innerHTML = L.searchTitle + ' <span>' + L.searchSpan + '</span>';
   const diasDesc = document.querySelector('.dias-desc');
   if (diasDesc) diasDesc.textContent = L.galleryDesc;
+  const diasSection = document.getElementById('txt-dias-section');
+  if (diasSection) diasSection.textContent = isPt ? 'Seus dias' : 'Tus días';
   // Paisajes card title
   const paisajesTitle = document.querySelector('.dia-card-paisajes .dia-card-title');
   if (paisajesTitle) paisajesTitle.innerHTML = (isPt ? 'LEVE SUAS FOTOS<br><span style="color:var(--accent);">DE PAISAGENS</span>' : 'LLEVATE TUS FOTOS<br><span style="color:var(--accent);">DE PAISAJES</span>');
@@ -2937,9 +3231,180 @@ if (_pb) packsBarOriginalHTML = _pb.innerHTML;
 if (currentUser) { updateUserBadge(); restoreCartFromStorage(); showView('v-dias'); }
 checkReview();
 applyLang();
-// Apply correct lang button state
 document.getElementById('lang-es')?.classList.toggle('active', currentLang === 'es');
 document.getElementById('lang-pt')?.classList.toggle('active', currentLang === 'pt');
+
+/* ── NIEVE GLOBAL (fondo de toda la página) ── */
+(function(){
+  const canvas = document.getElementById('global-snow');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, fl = [];
+  const N = 90;
+  function mkFlake(){
+    return {
+      x:  Math.random() * (W || window.innerWidth),
+      y:  -8,
+      r:  Math.random() * 2 + .4,
+      vy: Math.random() * .5 + .18,
+      vx: (Math.random() - .5) * .28,
+      o:  Math.random() * .38 + .1,
+      wave: Math.random() * Math.PI * 2,
+      ws:   Math.random() * .009 + .004,
+      wa:   Math.random() * .45  + .15,
+    };
+  }
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    fl = Array.from({length: N}, mkFlake);
+    fl.forEach(f => { f.y = Math.random() * H; });
+  }
+  function step(){
+    ctx.clearRect(0, 0, W, H);
+    fl.forEach(f => {
+      f.wave += f.ws;
+      f.x += f.vx + Math.sin(f.wave) * f.wa * .14;
+      f.y += f.vy;
+      if (f.y > H + 4){ Object.assign(f, mkFlake()); f.x = Math.random() * W; }
+      if (f.x > W + 4) f.x = -4;
+      if (f.x < -4)    f.x = W + 4;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(242,234,211,${f.o})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(step);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  step();
+})();
+
+/* ── NIEVE AUTH ── */
+(function(){
+  function initAuthSnow(canvasId){
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, fl = [];
+    const N = 65;
+    function mkFlake(){
+      return {
+        x: Math.random()*(W||400),
+        y: -8,
+        r: Math.random()*2+.5,
+        vy: Math.random()*.55+.2,
+        vx: (Math.random()-.5)*.3,
+        o: Math.random()*.4+.15,
+        wave: Math.random()*Math.PI*2,
+        ws: Math.random()*.01+.005,
+        wa: Math.random()*.4+.15,
+      };
+    }
+    function resize(){
+      W = canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 420;
+      H = canvas.height = canvas.offsetHeight || canvas.parentElement.offsetHeight || 600;
+      fl = Array.from({length:N}, mkFlake);
+      fl.forEach(f=>{ f.y = Math.random()*H; });
+    }
+    function step(){
+      ctx.clearRect(0,0,W,H);
+      fl.forEach(f=>{
+        f.wave += f.ws;
+        f.x += f.vx + Math.sin(f.wave)*f.wa*.15;
+        f.y += f.vy;
+        if(f.y>H+4){ Object.assign(f,mkFlake()); f.x=Math.random()*W; }
+        if(f.x>W+4) f.x=-4;
+        if(f.x<-4)  f.x=W+4;
+        ctx.beginPath();
+        ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
+        ctx.fillStyle=`rgba(242,234,211,${f.o})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(step);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    step();
+  }
+  initAuthSnow('auth-snow-login');
+  initAuthSnow('auth-snow-register');
+})();
+
+/* ── SCANNER INPUT FOCUS ── */
+(function(){
+  function bindScanners(){
+    document.querySelectorAll('.field input').forEach(inp=>{
+      const scanner = inp.parentElement.querySelector('.field-scanner');
+      if (!scanner) return;
+      inp.addEventListener('focus', ()=>{
+        scanner.style.animation='none';
+        scanner.style.width='100%';
+        scanner.style.left='0';
+        scanner.style.opacity='1';
+      });
+      inp.addEventListener('blur', ()=>{
+        scanner.style.animation='';
+        scanner.style.width='';
+        scanner.style.left='';
+        scanner.style.opacity='';
+      });
+    });
+  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindScanners);
+  else bindScanners();
+})();
+(function(){
+  const canvas = document.getElementById('hero-snow-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H, flakes = [];
+  const N = 55;
+
+  function resize(){
+    W = canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth;
+    H = canvas.height = canvas.offsetHeight || 260;
+    flakes = Array.from({length: N}, () => mkFlake());
+    // scatter vertically on init
+    flakes.forEach(f => { f.y = Math.random() * H; });
+  }
+
+  function mkFlake(){
+    return {
+      x:    Math.random() * (W || 400),
+      y:    -8,
+      r:    Math.random() * 1.8 + 0.4,
+      vy:   Math.random() * 0.6 + 0.25,
+      vx:   (Math.random() - .5) * 0.35,
+      o:    Math.random() * 0.45 + 0.2,
+      wave: Math.random() * Math.PI * 2,
+      ws:   Math.random() * 0.012 + 0.006,
+      wa:   Math.random() * 0.5 + 0.2,
+    };
+  }
+
+  function step(){
+    ctx.clearRect(0, 0, W, H);
+    flakes.forEach(f => {
+      f.wave += f.ws;
+      f.x   += f.vx + Math.sin(f.wave) * f.wa * 0.18;
+      f.y   += f.vy;
+      if (f.y > H + 4) { Object.assign(f, mkFlake()); f.x = Math.random() * W; }
+      if (f.x > W + 4) f.x = -4;
+      if (f.x < -4)    f.x = W + 4;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(242,234,211,${f.o})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(step);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+  step();
+})();
 </script>
 </body>
 </html>
