@@ -386,8 +386,21 @@ header::before{display:none;}
 .dias-grid{display:flex;flex-direction:column;gap:.9rem;}
 .dias-ski-grid{
   display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:.9rem;
+  grid-template-columns:repeat(3,1fr);
+  gap:.6rem;
+}
+.month-back-btn{
+  align-self:flex-start;
+  background:transparent;border:1px solid rgba(242,234,211,.18);
+  color:var(--muted);font-family:var(--font-h);font-size:.72rem;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;
+  padding:.45rem .9rem;border-radius:50px;cursor:pointer;
+  transition:all .2s;
+}
+.month-back-btn:hover{border-color:var(--accent);color:var(--accent);}
+.month-folder-title{
+  font-family:var(--font-display);font-weight:900;font-size:1.3rem;
+  color:var(--cream);margin:-.2rem 0 .1rem;
 }
 /* Card paisajes — horizontal, ancho completo (sin cambios) */
 .dia-card{
@@ -401,17 +414,18 @@ header::before{display:none;}
   position:relative;
   min-height:110px;
 }
-/* Cards de días en la grilla — más compactas y verticales */
+/* Cards de días en la grilla — carpetas compactas, 3 por fila */
 .dia-card-ski{
   display:flex;flex-direction:column;
-  background:rgba(10,26,14,.9);
+  background:linear-gradient(160deg, rgba(26,61,43,.55), rgba(10,26,14,.94));
   border:1px solid rgba(242,234,211,.09);
-  border-radius:14px;
+  border-radius:12px;
   overflow:hidden;cursor:pointer;
-  box-shadow:0 2px 16px rgba(0,0,0,.4);
+  box-shadow:0 2px 14px rgba(0,0,0,.4);
   transition:transform .22s cubic-bezier(.4,0,.2,1), box-shadow .22s, border-color .22s;
   position:relative;
-  min-height:160px;
+  aspect-ratio:1/1.08;
+  padding:.65rem .6rem .6rem;
 }
 .dia-card:hover,
 .dia-card-ski:hover{
@@ -419,24 +433,33 @@ header::before{display:none;}
   border-color:rgba(232,83,26,.35);
   box-shadow:0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(232,83,26,.12);
 }
-/* visual en la card ski: arriba, ocupa ~55% de la altura */
-.dia-card-ski .dia-card-visual{
-  flex:0 0 95px;
-  width:100%;
+/* montañas de fondo, muy sutiles, detrás del contenido */
+.dia-card-ski .dia-card-mtnbg{position:absolute;inset:0;z-index:0;opacity:.4;overflow:hidden;pointer-events:none;}
+.dia-card-ski .dia-card-mtnbg .dia-card-mtn{position:absolute;bottom:-4px;left:0;width:100%;}
+/* copo de nieve, esquina superior izquierda */
+.dia-card-ski .dia-card-snowflake{
+  position:relative;z-index:1;
+  font-size:1rem;line-height:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  margin-bottom:auto;
 }
-.dia-card-ski .dia-card-visual::after{
-  top:0;left:0;right:0;bottom:0;width:100%;height:22px;
-  background:linear-gradient(to bottom,rgba(10,26,14,.5),transparent);
+/* nombre de la carpeta */
+.dia-card-ski .dia-card-name{
+  position:relative;z-index:1;
+  font-family:var(--font-display);font-weight:900;
+  font-size:.72rem;letter-spacing:.01em;text-transform:uppercase;
+  color:var(--cream);line-height:1.15;margin-top:.5rem;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
-/* info debajo del visual en la card ski */
-.dia-card-ski .dia-card-info{
-  padding:.75rem .9rem .8rem;
-  flex:1;
-  gap:.15rem;
+/* fecha debajo del nombre */
+.dia-card-ski .dia-card-date-sm{
+  position:relative;z-index:1;
+  font-family:var(--font-h);font-size:.6rem;font-weight:700;
+  color:var(--accent);letter-spacing:.03em;margin-top:.15rem;
 }
-.dia-card-ski .dia-card-title{font-size:.92rem;}
-.dia-card-ski .dia-card-date{font-size:.5rem;}
-.dia-card-ski .dia-card-enter{margin-top:.3rem;font-size:.52rem;}
+/* carpetas de mes (días agrupados de meses pasados) */
+.dia-card-ski.dia-card-month{border-color:rgba(127,176,144,.18);}
+.dia-card-ski.dia-card-month .dia-card-date-sm{color:var(--muted);}
 
 /* ── Lado izquierdo: info ── */
 .dia-card-info{
@@ -785,7 +808,9 @@ header::before{display:none;}
   .dia-card-info{padding:.85rem .9rem .85rem 1rem;}
   .dia-card-title{font-size:.98rem;}
   .dia-card-date{font-size:.5rem;}
-  .dias-ski-grid{grid-template-columns:1fr;}
+  .dia-card-ski{padding:.55rem .5rem .5rem;border-radius:10px;}
+  .dia-card-ski .dia-card-name{font-size:.66rem;}
+  .dia-card-ski .dia-card-date-sm{font-size:.56rem;}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .review-grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));}
   .dias-wrap{padding:2.5rem 1rem 5rem;}
@@ -1362,6 +1387,7 @@ let selected    = new Set();
 let selectedPaisajes = new Set();
 let adminOK     = false;
 let expandedDay = null;
+let openMonthFolder = null;
 let packsBarOriginalHTML = '';
 
 // ═══════════════════════════════════════════
@@ -1643,32 +1669,87 @@ function renderDias() {
     grid.appendChild(card);
   }
 
-  // ── DÍAS DE ESQUÍ ──
+  // ── DÍAS DE ESQUÍ: carpetas compactas, agrupadas por mes ──
+  function buildDayCard(day) {
+    const card = document.createElement('div');
+    card.className = 'dia-card-ski';
+    card.innerHTML =
+      '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
+      '<div class="dia-card-snowflake">❄️</div>' +
+      '<div class="dia-card-name">' + day.name + '</div>' +
+      '<div class="dia-card-date-sm">' + formatDateShort(day.date) + '</div>';
+    card.onclick = () => openDay(day.id);
+    return card;
+  }
+
+  function buildMonthFolderCard(key, monthDays) {
+    const card = document.createElement('div');
+    card.className = 'dia-card-ski dia-card-month';
+    const label = monthLabel(key);
+    const n = monthDays.length;
+    const countTxt = isPt
+      ? (n + (n !== 1 ? ' dias' : ' dia'))
+      : (n + (n !== 1 ? ' días' : ' día'));
+    card.innerHTML =
+      '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
+      '<div class="dia-card-snowflake">📁</div>' +
+      '<div class="dia-card-name">' + label + '</div>' +
+      '<div class="dia-card-date-sm">' + countTxt + '</div>';
+    card.onclick = () => { openMonthFolder = key; renderDias(); };
+    return card;
+  }
+
   const days = DB.days.filter(d => d.photos && d.photos.length > 0);
   if (!days.length && (!DB.paisajes || !DB.paisajes.length)) {
     grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>' + (isPt ? 'Ainda não há fotos carregadas.<br>Volte em breve!' : 'Todavía no hay fotos cargadas.<br>¡Volvé pronto!') + '</p></div>';
     return;
   }
   if (days.length) {
+    const now = new Date();
+    const currentMonthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+    // Agrupar los días por mes (año-mes de la fecha del día)
+    const byMonth = {};
+    days.forEach(day => {
+      const key = (day.date || '').slice(0, 7) || currentMonthKey;
+      (byMonth[key] = byMonth[key] || []).push(day);
+    });
+    const monthKeys = Object.keys(byMonth).sort().reverse();
+
     const skiGrid = document.createElement('div');
     skiGrid.className = 'dias-ski-grid';
-    [...days].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(day => {
-      const card = document.createElement('div');
-      card.className = 'dia-card-ski';
-      const dateLabel = formatDate(day.date);
-      const nFotos    = day.photos.length;
-      const srcs      = day.photos.slice(0,2).map(p => p.dataUrl).filter(Boolean);
-      card.innerHTML =
-        buildVisual(srcs) +
-        '<div class="dia-card-info">' +
-          (isPt ? chipSkiPT : chipSkiES) +
-          '<div class="dia-card-date">' + dateLabel + '</div>' +
-          '<div class="dia-card-title">' + day.name + '</div>' +
-          '<div class="dia-card-count" style="display:none">' + nFotos + ' foto' + (nFotos !== 1 ? 's' : '') + '</div>' +
-          (isPt ? enterPT : enterES) +
-        '</div>';
-      card.onclick = () => openDay(day.id);
-      skiGrid.appendChild(card);
+
+    // Si hay una carpeta de mes abierta, mostrar solo esos días con botón volver
+    if (openMonthFolder && byMonth[openMonthFolder]) {
+      const backBtn = document.createElement('button');
+      backBtn.type = 'button';
+      backBtn.className = 'month-back-btn';
+      backBtn.innerHTML = '← ' + (isPt ? 'Voltar aos meses' : 'Volver a los meses');
+      backBtn.onclick = () => { openMonthFolder = null; renderDias(); };
+      grid.appendChild(backBtn);
+
+      const monthTitle = document.createElement('div');
+      monthTitle.className = 'month-folder-title';
+      monthTitle.textContent = monthLabel(openMonthFolder);
+      grid.appendChild(monthTitle);
+
+      [...byMonth[openMonthFolder]].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(day => {
+        skiGrid.appendChild(buildDayCard(day));
+      });
+      grid.appendChild(skiGrid);
+      return;
+    }
+
+    // Vista normal: el mes actual muestra los días sueltos; meses pasados se agrupan en una carpeta
+    monthKeys.forEach(key => {
+      const monthDays = byMonth[key];
+      if (key === currentMonthKey) {
+        [...monthDays].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(day => {
+          skiGrid.appendChild(buildDayCard(day));
+        });
+      } else {
+        skiGrid.appendChild(buildMonthFolderCard(key, monthDays));
+      }
     });
     grid.appendChild(skiGrid);
   }
@@ -1679,6 +1760,21 @@ function formatDate(str) {
   const d = new Date(str + 'T12:00:00');
   const locale = currentLang === 'pt' ? 'pt-BR' : 'es-AR';
   return d.toLocaleDateString(locale, { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+}
+
+function formatDateShort(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T12:00:00');
+  const locale = currentLang === 'pt' ? 'pt-BR' : 'es-AR';
+  return d.toLocaleDateString(locale, { day:'numeric', month:'short' }).replace('.', '');
+}
+
+function monthLabel(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(y, (m || 1) - 1, 1);
+  const locale = currentLang === 'pt' ? 'pt-BR' : 'es-AR';
+  const label = d.toLocaleDateString(locale, { month:'long', year:'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function openDay(id) {
