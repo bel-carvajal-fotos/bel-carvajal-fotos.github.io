@@ -1349,13 +1349,42 @@ async function saveDayToFirestore(day) {
   const idx = DB.days.findIndex(d => d.id === day.id);
   if (idx >= 0) DB.days[idx] = day; else DB.days.push(day);
   saveDaysLocal();
-  // Intentar guardar en Firestore
-  if (db) {
-    try {
-      const dayData = { ...day, photos: day.photos.map(p => ({ id: p.id, filename: p.filename || '', dataUrl: p.dataUrl })) };
-      await db.collection('days').doc(day.id).set(dayData);
-    } catch(e) { console.warn('Firestore save error:', e); }
-  }
+  if (!db) return;
+  try {
+    // Auto-migrar a Cloudinary cualquier foto vieja que todavía tenga la imagen
+    // en base64 (dataUrl) en vez de url — evita que el documento de Firestore
+    // supere el límite de 1MB y bloquee futuras subidas.
+    for (const p of day.photos) {
+      if (!p.url && p.dataUrl) {
+        try {
+          const blob = await (await fetch(p.dataUrl)).blob();
+          const formData = new FormData();
+          formData.append('file', blob, p.filename || 'foto.jpg');
+          formData.append('upload_preset', CFG.cloudinary.uploadPreset);
+          formData.append('folder', 'days/' + day.id);
+          const res = await fetch(
+            'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
+            { method: 'POST', body: formData }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            p.url = data.secure_url;
+            p.publicId = data.public_id;
+            delete p.dataUrl;
+          }
+        } catch(e2) { console.warn('No se pudo migrar foto vieja a Cloudinary:', e2); }
+      }
+    }
+    saveDaysLocal();
+    const dayData = {
+      ...day,
+      photos: day.photos.map(p => p.url
+        ? { id: p.id, filename: p.filename || '', url: p.url, publicId: p.publicId || '', uploadedAt: p.uploadedAt || Date.now() }
+        : { id: p.id, filename: p.filename || '', dataUrl: p.dataUrl }
+      )
+    };
+    await db.collection('days').doc(day.id).set(dayData);
+  } catch(e) { console.warn('Firestore save error:', e); }
 }
 
 async function deleteDayFromFirestore(id) {
@@ -1927,7 +1956,7 @@ function renderGallery() {
     const card = document.createElement('div');
     card.className = 'photo-card' + (selected.has(photo.id) ? ' selected' : '');
     card.innerHTML = `
-      <img src="${photo.dataUrl}" alt="Foto ${idx+1}" loading="lazy" draggable="false">
+      <img src="${getPhotoSrc(photo)}" alt="Foto ${idx+1}" loading="lazy" draggable="false">
       <div class="wm-wrap">
         <div class="wm-center">BEL CARVAJAL FOTOS</div>
         <div class="wm-tl">© Bel Carvajal</div>
@@ -1941,7 +1970,7 @@ function renderGallery() {
     // Click simple → abrir lightbox ampliado
     card.addEventListener('click', (e) => {
       if (e.target.closest('.check-badge')) return; // el badge maneja su propio click
-      openLightbox(photo.dataUrl, photo.id, idx);
+      openLightbox(getPhotoSrc(photo), photo.id, idx);
     });
 
     // Check badge → seleccionar/deseleccionar sin abrir lightbox
@@ -2036,7 +2065,7 @@ function renderCartList() {
       item.className = 'cart-item';
       item.innerHTML = `
         <div class="cart-thumb" style="cursor:pointer;" title="Ver en grande">
-          <img src="${p.dataUrl}" alt="Foto ${idx+1}">
+          <img src="${getPhotoSrc(p)}" alt="Foto ${idx+1}">
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;background:rgba(0,0,0,.3);" class="cart-thumb-hover">🔍</div>
         </div>
         <div class="cart-info">
@@ -2157,7 +2186,7 @@ function sendToWhatsapp() {
 
 // Lightbox para paisajes
 function openPaisajeLightbox(p) {
-  document.getElementById('lbox-img').src = p.dataUrl;
+  document.getElementById('lbox-img').src = getPhotoSrc(p);
   document.getElementById('lightbox').classList.add('active');
   document.getElementById('lbox-prev').style.display = 'none';
   document.getElementById('lbox-next').style.display = 'none';
@@ -2217,7 +2246,7 @@ function lboxNav(dir) {
   lboxPhotoId  = photo.id;
   const img = document.getElementById('lbox-img');
   img.style.opacity = '0';
-  setTimeout(() => { img.src = photo.dataUrl; img.style.opacity = '1'; }, 120);
+  setTimeout(() => { img.src = getPhotoSrc(photo); img.style.opacity = '1'; }, 120);
   img.style.transition = 'opacity .12s';
   updateLboxState();
 }
@@ -2876,13 +2905,35 @@ function handleFiles(files, dayId) {
       clearInterval(iv);
       const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
       const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-      compress(e2.target.result, 920, .82, async compressed => {
-        day.photos.push({ id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2), filename: file.name, dataUrl: compressed });
+      compress(e2.target.result, 1600, .85, async compressed => {
         try {
+          // 1. Subir la imagen a Cloudinary (sin límite de tamaño de documento)
+          const blob = await (await fetch(compressed)).blob();
+          const formData = new FormData();
+          formData.append('file', blob, file.name);
+          formData.append('upload_preset', CFG.cloudinary.uploadPreset);
+          formData.append('folder', 'days/' + dayId);
+          const res = await fetch(
+            'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
+            { method: 'POST', body: formData }
+          );
+          if (!res.ok) throw new Error('Cloudinary ' + res.status);
+          const data = await res.json();
+
+          // 2. Guardar solo metadata (url) en Firestore — el documento del día se
+          // mantiene liviano sin importar cuántas fotos tenga.
+          day.photos.push({
+            id: 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+            filename: file.name,
+            url: data.secure_url,
+            publicId: data.public_id,
+            uploadedAt: Date.now()
+          });
           await saveDayToFirestore(day);
-          if(ps) ps.textContent = '✓';
+          if (ps) ps.textContent = '✓';
         } catch(e) {
-          if(ps) ps.textContent = '❌';
+          console.error('Error subiendo foto:', e);
+          if (ps) ps.textContent = '❌';
         }
         renderThumbs(dayId);
         const metaEl = document.querySelector(`#dib_${dayId}`)?.closest('.day-item')?.querySelector('.day-item-meta');
@@ -2918,7 +2969,7 @@ function renderThumbs(dayId) {
     wrap.className = 'thumb-wrap';
     wrap.title = p.filename || `Foto ${i+1}`;
     wrap.innerHTML = `
-      <img src="${p.dataUrl}" alt="${p.filename || 'Foto '+(i+1)}">
+      <img src="${getPhotoSrc(p)}" alt="${p.filename || 'Foto '+(i+1)}">
       <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);font-size:.42rem;color:#fff;padding:2px 3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-b);">${p.filename || 'sin nombre'}</div>
       <button class="thumb-del">✕</button>`;
     wrap.querySelector('.thumb-del').addEventListener('click', (e) => {
