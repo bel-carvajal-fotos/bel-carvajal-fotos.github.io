@@ -1227,6 +1227,14 @@ function initFirebase() {
           if (dayList) renderDayList();
         }
       }, (err) => { console.warn('Paisajes Firestore error:', err); });
+      // Suscribirse a meses archivados (control manual de carpetas de mes)
+      db.collection('meta').doc('archivedMonths').onSnapshot((docSnap) => {
+        archivedMonths = (docSnap.exists && docSnap.data().months) || [];
+        ss('bcArchivedMonths', archivedMonths);
+        renderDias();
+        const dayList = document.getElementById('day-list');
+        if (dayList && adminOK) renderMonthsAdmin();
+      }, (err) => { console.warn('ArchivedMonths Firestore error:', err); });
       // Cargar usuarios desde Firestore
       loadUsersFromFirestore();
       // Cargar pendientes desde Firestore
@@ -1269,6 +1277,22 @@ async function loadUsersFromFirestore() {
     saveUsersLocal(users);
     DB.users = users;
   } catch(e) { console.warn('Firestore users load error:', e); }
+}
+
+// Meses archivados — control manual desde Admin: un mes archivado se muestra
+// como una sola carpeta agrupando todos sus días; si no está archivado, sus
+// días se muestran sueltos.
+async function toggleMonthArchive(key) {
+  const idx = archivedMonths.indexOf(key);
+  if (idx >= 0) archivedMonths.splice(idx, 1);
+  else archivedMonths.push(key);
+  ss('bcArchivedMonths', archivedMonths);
+  if (db) {
+    try { await db.collection('meta').doc('archivedMonths').set({ months: archivedMonths }); }
+    catch(e) { console.warn('Error guardando mes archivado:', e); }
+  }
+  renderDias();
+  renderMonthsAdmin();
 }
 
 async function findUserByEmail(email) {
@@ -1388,6 +1412,7 @@ let selectedPaisajes = new Set();
 let adminOK     = false;
 let expandedDay = null;
 let openMonthFolder = null;
+let archivedMonths = ls('bcArchivedMonths') || [];
 let packsBarOriginalHTML = '';
 
 // ═══════════════════════════════════════════
@@ -1740,15 +1765,16 @@ function renderDias() {
       return;
     }
 
-    // Vista normal: el mes actual muestra los días sueltos; meses pasados se agrupan en una carpeta
+    // Vista normal: los meses archivados (cerrados manualmente desde Admin) se
+    // agrupan en una sola carpeta; el resto muestra sus días sueltos.
     monthKeys.forEach(key => {
       const monthDays = byMonth[key];
-      if (key === currentMonthKey) {
+      if (archivedMonths.includes(key)) {
+        skiGrid.appendChild(buildMonthFolderCard(key, monthDays));
+      } else {
         [...monthDays].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(day => {
           skiGrid.appendChild(buildDayCard(day));
         });
-      } else {
-        skiGrid.appendChild(buildMonthFolderCard(key, monthDays));
       }
     });
     grid.appendChild(skiGrid);
@@ -2347,6 +2373,11 @@ function renderAdminContent() {
       </div>
     </div>
     <div class="admin-section">
+      <div class="admin-section-title">Meses — archivar en carpeta</div>
+      <p style="font-size:.72rem;color:var(--muted);margin-bottom:.6rem;line-height:1.5;">Un mes archivado se muestra a los clientes como una sola carpeta. Mientras no lo archivés, sus días se ven sueltos.</p>
+      <div id="months-admin-list"></div>
+    </div>
+    <div class="admin-section">
       <div class="admin-section-title">Galerías (${DB.days.length + 1})</div>
       <div class="day-list" id="day-list"></div>
     </div>
@@ -2381,6 +2412,7 @@ function renderAdminContent() {
       <div id="pending-list"></div>
     </div>`
   renderDayList();
+  renderMonthsAdmin();
   renderPendingList();
   // Wire up add-day button
   const addBtn = document.getElementById('add-day-btn');
@@ -2525,10 +2557,44 @@ async function addDay() {
   hideLoading();
 }
 
+function renderMonthsAdmin() {
+  const el = document.getElementById('months-admin-list');
+  if (!el) return;
+  if (!DB.days.length) {
+    el.innerHTML = '<p style="font-size:.78rem;color:var(--muted);">Todavía no hay días cargados.</p>';
+    return;
+  }
+  const byMonth = {};
+  DB.days.forEach(day => {
+    const key = (day.date || '').slice(0, 7);
+    if (!key) return;
+    (byMonth[key] = byMonth[key] || []).push(day);
+  });
+  const keys = Object.keys(byMonth).sort().reverse();
+  el.innerHTML = '';
+  keys.forEach(key => {
+    const isArchived = archivedMonths.includes(key);
+    const n = byMonth[key].length;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:.55rem .8rem;margin-bottom:.4rem;';
+    row.innerHTML =
+      '<div><div style="font-family:var(--font-d);font-size:.82rem;font-weight:600;color:var(--cream);">' + monthLabel(key) + '</div>' +
+      '<div style="font-size:.68rem;color:var(--muted);">' + n + ' día' + (n !== 1 ? 's' : '') + (isArchived ? ' · archivado' : '') + '</div></div>';
+    const btn = document.createElement('button');
+    btn.className = isArchived ? 'btn-accent-sm' : 'btn-danger-sm';
+    btn.type = 'button';
+    btn.textContent = isArchived ? 'Reabrir' : 'Archivar';
+    btn.addEventListener('click', () => toggleMonthArchive(key));
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
 function renderDayList() {
   const list = document.getElementById('day-list');
   if (!list) return;
   list.innerHTML = '';
+  renderMonthsAdmin();
 
   // ── CARPETA FIJA: PAISAJES ──
   const paisajesId = '__paisajes__';
