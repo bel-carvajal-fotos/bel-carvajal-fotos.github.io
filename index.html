@@ -447,14 +447,14 @@ header::before{display:none;}
 .dia-card-ski .dia-card-name{
   position:relative;z-index:1;
   font-family:var(--font-display);font-weight:900;
-  font-size:.98rem;letter-spacing:.01em;text-transform:uppercase;
+  font-size:1.18rem;letter-spacing:.01em;text-transform:uppercase;
   color:var(--cream);line-height:1.15;margin-top:.5rem;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
 /* fecha debajo del nombre */
 .dia-card-ski .dia-card-date-sm{
   position:relative;z-index:1;
-  font-family:var(--font-h);font-size:.8rem;font-weight:700;
+  font-family:var(--font-h);font-size:.95rem;font-weight:700;
   color:var(--accent);letter-spacing:.03em;margin-top:.2rem;
 }
 /* carpetas de mes (días agrupados de meses pasados) */
@@ -809,8 +809,8 @@ header::before{display:none;}
   .dia-card-title{font-size:.98rem;}
   .dia-card-date{font-size:.5rem;}
   .dia-card-ski{padding:.55rem .5rem .5rem;border-radius:10px;}
-  .dia-card-ski .dia-card-name{font-size:.86rem;}
-  .dia-card-ski .dia-card-date-sm{font-size:.72rem;}
+  .dia-card-ski .dia-card-name{font-size:1.05rem;}
+  .dia-card-ski .dia-card-date-sm{font-size:.86rem;}
   .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .review-grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));}
   .dias-wrap{padding:2.5rem 1rem 5rem;}
@@ -993,23 +993,23 @@ header::before{display:none;}
       <span class="packs-bar-title" id="txt-prices">Precios</span>
       <div class="pack-pill" onclick="quickSelectPack(1)">
         <span class="pack-qty">1 foto</span>
-        <span class="pack-price">$15.000</span>
+        <span class="pack-price">$20.000</span>
       </div>
       <div class="pack-pill" onclick="quickSelectPack(3)">
         <span class="pack-qty">3 fotos</span>
-        <span class="pack-price">$40.000</span>
+        <span class="pack-price">$50.000</span>
       </div>
       <div class="pack-pill best" onclick="quickSelectPack(5)">
         <span class="pack-qty">5 fotos</span>
-        <span class="pack-price">$60.000</span>
+        <span class="pack-price">$80.000</span>
       </div>
       <div class="pack-pill" onclick="quickSelectPack(10)">
         <span class="pack-qty">10 fotos</span>
-        <span class="pack-price">$100.000</span>
+        <span class="pack-price">$150.000</span>
       </div>
       <div class="pack-pill" onclick="quickSelectPack(15)">
         <span class="pack-qty">15 fotos</span>
-        <span class="pack-price">$135.000</span>
+        <span class="pack-price">$170.000</span>
       </div>
       <div class="pack-pill pack-consultar" onclick="openPackConsulta()">
         <span class="pack-qty" style="font-size:.8rem;">Todas</span>
@@ -2002,7 +2002,7 @@ function updateCartPriceTotal() {
     const r = getActualPrice(nSki);
     const sf = nSki !== 1 ? 's' : '';
     parts.push(r.perUnit
-      ? nSki + ' foto' + sf + ' de esquí × $15.000'
+      ? nSki + ' foto' + sf + ' de esquí × $20.000'
       : r.label + ' (' + nSki + ' foto' + sf + ' esquí)');
   }
   if (nPaisajes > 0) {
@@ -2041,7 +2041,7 @@ function renderCartList() {
         </div>
         <div class="cart-info">
           <div class="cart-info-name">${p.filename || 'Foto ' + (idx+1)}</div>
-          <div class="cart-info-sub">${currentDay.name} · $15.000</div>
+          <div class="cart-info-sub">${currentDay.name} · $20.000</div>
         </div>
         <button class="cart-rm" type="button">✕</button>`;
       const thumb = item.querySelector('.cart-thumb');
@@ -2125,7 +2125,7 @@ function sendToWhatsapp() {
       .filter(Boolean);
     const r = getActualPrice(photoItems.length);
     const packInfo = r.perUnit
-      ? `${photoItems.length} foto${photoItems.length!==1?'s':''} × $15.000 = ${formatPrice(r.price)}`
+      ? `${photoItems.length} foto${photoItems.length!==1?'s':''} × $20.000 = ${formatPrice(r.price)}`
       : `${r.label} = ${formatPrice(r.price)}`;
     parts.push('📷 *Fotos de esquí — ' + currentDay.name + ' (' + formatDate(currentDay.date) + ')*\n'
       + photoItems.map(p => '• ' + p.filename).join('\n')
@@ -3101,11 +3101,11 @@ function applyLang() {
 // PACKS Y PRECIOS
 // ═══════════════════════════════════════════
 const PACKS = [
-  { qty: 1,  price: '$15.000',  label: 'Pack 1' },
-  { qty: 3,  price: '$40.000',  label: 'Pack 3' },
-  { qty: 5,  price: '$60.000',  label: 'Pack 5' },
-  { qty: 10, price: '$100.000', label: 'Pack 10' },
-  { qty: 15, price: '$135.000', label: 'Pack 15' },
+  { qty: 1,  price: '$20.000',  label: 'Pack 1' },
+  { qty: 3,  price: '$50.000',  label: 'Pack 3' },
+  { qty: 5,  price: '$80.000',  label: 'Pack 5' },
+  { qty: 10, price: '$150.000', label: 'Pack 10' },
+  { qty: 15, price: '$170.000', label: 'Pack 15' },
 ];
 
 function quickSelectPack(qty) {
@@ -3117,11 +3117,11 @@ function quickSelectPack(qty) {
   renderGallery();
 }
 
-// Precio real: usa pack si conviene, sino cuenta por unidad ($15.000 c/u)
+// Precio real: usa pack si conviene, sino cuenta por unidad ($20.000 c/u)
 function getActualPrice(n) {
   if (n <= 0) return { price: 0, label: '', perUnit: false };
   // Precio por unidad
-  const unitTotal = n * 15000;
+  const unitTotal = n * 20000;
   // Buscar el pack exacto o el más económico
   const exactPack = PACKS.find(p => p.qty === n);
   if (exactPack) {
