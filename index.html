@@ -1207,6 +1207,7 @@ function initFirebase() {
       // Suscribirse a días en tiempo real
       db.collection('days').orderBy('date', 'desc').onSnapshot((snap) => {
         DB.days = snap.docs.map(d => d.data());
+        DB.days.forEach(sortDayPhotos);
         renderDias();
         if (currentDay) {
           const updated = DB.days.find(d => d.id === currentDay.id);
@@ -1318,7 +1319,23 @@ async function findUserByEmail(email) {
 
 // Fallback localStorage para días
 function saveDaysLocal() { ss('bcDays', DB.days); }
-function loadDaysLocal() { return ls('bcDays') || []; }
+function loadDaysLocal() {
+  const days = ls('bcDays') || [];
+  days.forEach(sortDayPhotos);
+  return days;
+}
+
+// Ordena las fotos de un día por nombre de archivo (orden correlativo de cámara),
+// para que se muestren siempre en el mismo orden sin importar en qué orden
+// terminó de subir cada una (las subidas son asincrónicas y pueden llegar desordenadas).
+function naturalSort(a, b) {
+  return (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
+}
+function sortDayPhotos(day) {
+  if (day && Array.isArray(day.photos)) {
+    day.photos.sort((a, b) => naturalSort(a.filename, b.filename));
+  }
+}
 
 // Cart persistence
 function saveCartSelection() {
@@ -1964,7 +1981,6 @@ function renderGallery() {
         <div class="wm-diag">BEL CARVAJAL FOTOS &nbsp;&nbsp;&nbsp; BEL CARVAJAL FOTOS &nbsp;&nbsp;&nbsp; BEL CARVAJAL FOTOS</div>
       </div>
       <div class="check-badge" data-id="${photo.id}"><svg fill="none" stroke="#fff" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <div class="photo-num">Foto ${idx+1}</div>
       <div class="lupa-hint">🔍</div>`;
 
     // Click simple → abrir lightbox ampliado
@@ -2930,6 +2946,7 @@ function handleFiles(files, dayId) {
             uploadedAt: Date.now()
           });
           await saveDayToFirestore(day);
+          sortDayPhotos(day);
           if (ps) ps.textContent = '✓';
         } catch(e) {
           console.error('Error subiendo foto:', e);
