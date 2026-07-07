@@ -1238,8 +1238,13 @@ function initFirebase() {
       }, (err) => { console.warn('ArchivedMonths Firestore error:', err); });
       // Cargar usuarios desde Firestore
       loadUsersFromFirestore();
-      // Cargar pendientes desde Firestore
-      loadPendingFromFirestore();
+      // Suscribirse a pendientes en tiempo real (antes era una sola lectura al
+      // abrir la página, lo que podía perder datos si Firestore tardaba en responder)
+      db.collection('pending').onSnapshot((snap) => {
+        const list = snap.docs.map(d => d.data());
+        ss('bcPending', list);
+        if (adminOK) renderPendingList();
+      }, (err) => { console.warn('Pending Firestore error:', err); });
     }
   } catch(e) { console.warn('Firebase init error:', e); }
 }
