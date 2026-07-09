@@ -1366,6 +1366,24 @@ function loadCartSelection() {
   }
 }
 
+// Agrupa (coalesce) los guardados en Firestore: si llegan muchas fotos casi
+// juntas (subida masiva), en vez de disparar una escritura por cada una —lo que
+// puede saturar Firestore y hacer que escrituras se pisen entre sí fuera de
+// orden— se deja una sola escritura en curso por día, y cualquier pedido que
+// llegue mientras tanto queda marcado como "pendiente" para hacerse una vez
+// que termine, siempre con el estado más actualizado.
+const _daySaveState = {};
+async function scheduleDaySave(day) {
+  const st = _daySaveState[day.id] || (_daySaveState[day.id] = { saving: false, pending: false });
+  if (st.saving) { st.pending = true; return; }
+  st.saving = true;
+  do {
+    st.pending = false;
+    try { await saveDayToFirestore(day); } catch(e) { console.warn('Error guardando día:', e); }
+  } while (st.pending);
+  st.saving = false;
+}
+
 async function saveDayToFirestore(day) {
   // Guardar en localStorage siempre (fallback)
   const idx = DB.days.findIndex(d => d.id === day.id);
@@ -2904,67 +2922,110 @@ function handleFiles(files, dayId) {
   if (!day || !files.length) return;
   const prog = document.getElementById('prog_'+dayId);
   if (prog) prog.innerHTML = '';
-  Array.from(files).forEach(file => {
-    if (!file.type.startsWith('image/')) return;
-    const rid = 'r_'+Date.now()+Math.random().toString(36).slice(2);
-    if (prog) prog.innerHTML += `
-      <div class="prog-item" id="${rid}">
-        <span style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</span>
-        <div class="prog-bar-wrap"><div class="prog-bar" id="pb_${rid}" style="width:0%"></div></div>
-        <span id="ps_${rid}" style="min-width:1.8rem;text-align:right">0%</span>
-      </div>`;
-    const reader = new FileReader();
-    let pv = 0;
-    const iv = setInterval(() => {
-      pv = Math.min(pv + Math.random()*20, 90);
-      const pb = document.getElementById('pb_'+rid);
-      const ps = document.getElementById('ps_'+rid);
-      if (pb) pb.style.width = pv+'%';
-      if (ps) ps.textContent = Math.round(pv)+'%';
-    }, 80);
-    reader.onload = e2 => {
-      clearInterval(iv);
-      const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
-      const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-      compress(e2.target.result, 1600, .85, async compressed => {
-        try {
-          // 1. Subir la imagen a Cloudinary (sin límite de tamaño de documento)
-          const blob = await (await fetch(compressed)).blob();
-          const formData = new FormData();
-          formData.append('file', blob, file.name);
-          formData.append('upload_preset', CFG.cloudinary.uploadPreset);
-          formData.append('folder', 'days/' + dayId);
-          const res = await fetch(
-            'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
-            { method: 'POST', body: formData }
-          );
-          if (!res.ok) throw new Error('Cloudinary ' + res.status);
-          const data = await res.json();
 
-          // 2. Guardar solo metadata (url) en Firestore — el documento del día se
-          // mantiene liviano sin importar cuántas fotos tenga.
-          day.photos.push({
-            id: 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-            filename: file.name,
-            url: data.secure_url,
-            publicId: data.public_id,
-            uploadedAt: Date.now()
-          });
-          await saveDayToFirestore(day);
-          sortDayPhotos(day);
-          if (ps) ps.textContent = '✓';
-        } catch(e) {
-          console.error('Error subiendo foto:', e);
-          if (ps) ps.textContent = '❌';
-        }
+  const fileList = Array.from(files).filter(f => f.type.startsWith('image/'));
+  const total = fileList.length;
+  if (!total) return;
+
+  // Resumen agregado — útil para ver de un vistazo el avance en tandas grandes
+  let summaryEl = null;
+  if (prog) {
+    summaryEl = document.createElement('div');
+    summaryEl.style.cssText = 'font-family:var(--font-h);font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:.5rem;';
+    prog.appendChild(summaryEl);
+  }
+  let doneCount = 0;
+  let errorCount = 0;
+  function updateSummary() {
+    if (!summaryEl) return;
+    summaryEl.textContent = doneCount < total
+      ? `Subiendo ${doneCount} / ${total}...`
+      : `Listo — ${total - errorCount} de ${total} foto${total!==1?'s':''} subida${total!==1?'s':''}` + (errorCount ? ` (${errorCount} con error, reintentá esas)` : '');
+  }
+  updateSummary();
+
+  function uploadOne(file) {
+    return new Promise(resolveOne => {
+      const rid = 'r_'+Date.now()+Math.random().toString(36).slice(2);
+      if (prog) prog.insertAdjacentHTML('beforeend', `
+        <div class="prog-item" id="${rid}">
+          <span style="max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${file.name}</span>
+          <div class="prog-bar-wrap"><div class="prog-bar" id="pb_${rid}" style="width:0%"></div></div>
+          <span id="ps_${rid}" style="min-width:1.8rem;text-align:right">0%</span>
+        </div>`);
+      const reader = new FileReader();
+      let pv = 0;
+      const iv = setInterval(() => {
+        pv = Math.min(pv + Math.random()*20, 90);
+        const pb = document.getElementById('pb_'+rid);
+        const ps = document.getElementById('ps_'+rid);
+        if (pb) pb.style.width = pv+'%';
+        if (ps) ps.textContent = Math.round(pv)+'%';
+      }, 80);
+      const finishOne = () => {
+        doneCount++;
+        updateSummary();
         renderThumbs(dayId);
         const metaEl = document.querySelector(`#dib_${dayId}`)?.closest('.day-item')?.querySelector('.day-item-meta');
         if (metaEl) metaEl.textContent = `${formatDate(day.date)} · ${day.photos.length} foto${day.photos.length!==1?'s':''}`;
         setTimeout(() => document.getElementById(rid)?.remove(), 2500);
-      });
-    };
-    reader.readAsDataURL(file);
-  });
+        resolveOne();
+      };
+      reader.onerror = () => { clearInterval(iv); errorCount++; const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '❌'; finishOne(); };
+      reader.onload = e2 => {
+        clearInterval(iv);
+        const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
+        const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
+        compress(e2.target.result, 1600, .85, async compressed => {
+          try {
+            // 1. Subir la imagen a Cloudinary (sin límite de tamaño de documento)
+            const blob = await (await fetch(compressed)).blob();
+            const formData = new FormData();
+            formData.append('file', blob, file.name);
+            formData.append('upload_preset', CFG.cloudinary.uploadPreset);
+            formData.append('folder', 'days/' + dayId);
+            const res = await fetch(
+              'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
+              { method: 'POST', body: formData }
+            );
+            if (!res.ok) throw new Error('Cloudinary ' + res.status);
+            const data = await res.json();
+
+            // 2. Guardar solo metadata (url) — el documento del día se mantiene
+            // liviano sin importar cuántas fotos tenga.
+            day.photos.push({
+              id: 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+              filename: file.name,
+              url: data.secure_url,
+              publicId: data.public_id,
+              uploadedAt: Date.now()
+            });
+            sortDayPhotos(day);
+            scheduleDaySave(day); // agrupa el guardado, no dispara una escritura por cada foto
+            if (ps) ps.textContent = '✓';
+          } catch(e) {
+            console.error('Error subiendo foto:', file.name, e);
+            errorCount++;
+            if (ps) ps.textContent = '❌';
+          }
+          finishOne();
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Cola con concurrencia limitada: subir de a pocas fotos por vez evita
+  // saturar la memoria del navegador y la red cuando se cargan tandas grandes
+  // (300-400+ fotos juntas).
+  const CONCURRENCY = 3;
+  let cursor = 0;
+  function next() {
+    if (cursor >= fileList.length) return;
+    const file = fileList[cursor++];
+    uploadOne(file).finally(next);
+  }
+  for (let i = 0; i < Math.min(CONCURRENCY, fileList.length); i++) next();
 }
 
 function compress(src, maxW, q, cb) {
