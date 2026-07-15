@@ -882,7 +882,7 @@ header::before{display:none;}
 </header>
 
 <!-- ══ VISTA: LOGIN ══ -->
-<div class="view active" id="v-login">
+<div class="view" id="v-login">
   <div class="auth-wrap" id="auth-wrap-login">
     <canvas class="auth-snow-canvas" id="auth-snow-login"></canvas>
     <div class="auth-card">
@@ -905,7 +905,7 @@ header::before{display:none;}
 </div>
 
 <!-- ══ VISTA: REGISTRO ══ -->
-<div class="view" id="v-register">
+<div class="view active" id="v-register">
   <div class="auth-wrap" id="auth-wrap-register">
     <canvas class="auth-snow-canvas" id="auth-snow-register"></canvas>
     <div class="auth-card">
@@ -3454,12 +3454,19 @@ function renderPendingList() {
       const daysAgo = Math.floor((Date.now() - c.sentAt) / 86400000);
       const daysLabel = daysAgo === 0 ? 'hoy' : daysAgo === 1 ? 'hace 1 día' : 'hace ' + daysAgo + ' días';
       const reminder = encodeURIComponent(
-        'Hola ' + c.name + '! 👋 Soy Bel Carvajal, fotógrafa del Cerro Catedral 🏔️\n' +
-        'Te escribo porque todavía están disponibles tus fotos del día.\n' +
-        'Podés verlas y elegir las que más te gustan acá:\n' + link + '\n\n' +
-        '¡No te las pierdas! Las fotos se eliminan periódicamente 📸'
+        'Hola! Como estas? Este es un mensaje recordatorio de que tenes pendiente tu seleccion de fotos 📸\n' +
+        'Podes verlas y elegir las que mas te gusten aca: ' + link + '\n' +
+        '¡No te las pierdas! Las fotos se eliminan periódicamente 🔔\n' +
+        'Consulta por descuentos y paquetes! 🎿'
+      );
+      const reminderPt = encodeURIComponent(
+        'Olá! Como você está? Esta é uma mensagem para lembrar que sua seleção de fotos está pendente 📸\n' +
+        'Você pode vê-las e escolher as que mais gosta aqui: ' + link + '\n' +
+        'Não perca! As fotos são apagadas periodicamente 🔔\n' +
+        'Consulte sobre descontos e pacotes! 🎿'
       );
       const waUrl = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminder;
+      const waUrlPt = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminderPt;
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
       div.innerHTML =
@@ -3468,6 +3475,7 @@ function renderPendingList() {
           '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
         '</div>' +
         '<a href="' + waUrl + '" target="_blank" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 Recordatorio</a>' +
+        '<a href="' + waUrlPt + '" target="_blank" title="Lembrete em português" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 🇧🇷 PT</a>' +
         '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
         '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '" data-name="' + c.name + '">✕</button>';
       div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
