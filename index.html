@@ -824,6 +824,7 @@ header::before{display:none;}
 /* ══ PRECIOS PACKS ══ */
 .packs-bar{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.9rem 1.2rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;border-left:3px solid var(--accent);}
 .packs-bar-title{font-family:var(--font-display);font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-right:.3rem;white-space:nowrap;}
+.packs-bar-note{font-family:var(--font-b);font-size:.82rem;line-height:1.5;color:var(--cream);}
 .pack-pill{display:flex;flex-direction:column;align-items:center;padding:.5rem .85rem;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .2s;min-width:76px;}
 .pack-pill:hover{border-color:var(--accent);background:rgba(232,83,26,.1);transform:translateY(-1px);}
 .pack-pill.best{border-color:var(--accent);background:rgba(232,83,26,.15);position:relative;transform:translateY(-2px);box-shadow:0 4px 12px rgba(232,83,26,.25);}
@@ -991,37 +992,9 @@ header::before{display:none;}
       </div>
       <div class="gallery-meta"><span id="sel-count">0</span> seleccionadas</div>
     </div>
-    <!-- Barra de precios -->
+    <!-- Aviso de precios (sin montos fijos — se arma el pack según lo elegido) -->
     <div class="packs-bar" id="packs-bar">
-      <span class="packs-bar-title" id="txt-prices">Precios</span>
-      <div class="pack-pill" onclick="quickSelectPack(1)">
-        <span class="pack-qty">1 foto</span>
-        <span class="pack-price">$15.000 c/u</span>
-      </div>
-      <div class="pack-pill" onclick="quickSelectPack(3)">
-        <span class="pack-qty">3 o más</span>
-        <span class="pack-price">$13.000 c/u</span>
-      </div>
-      <div class="pack-pill" onclick="quickSelectPack(5)">
-        <span class="pack-qty">5 o más</span>
-        <span class="pack-price">$12.000 c/u</span>
-      </div>
-      <div class="pack-pill best" onclick="quickSelectPack(10)">
-        <span class="pack-qty">10 o más</span>
-        <span class="pack-price">$10.000 c/u</span>
-      </div>
-      <div class="pack-pill" onclick="quickSelectPack(20)">
-        <span class="pack-qty">20 o más</span>
-        <span class="pack-price">$9.000 c/u</span>
-      </div>
-      <div class="pack-pill" onclick="quickSelectPack(30)">
-        <span class="pack-qty">30 o más</span>
-        <span class="pack-price">$8.000 c/u</span>
-      </div>
-      <div class="pack-pill pack-consultar" onclick="openPackConsulta()">
-        <span class="pack-qty" style="font-size:.8rem;">Todas</span>
-        <span class="pack-price">Consultar</span>
-      </div>
+      <span class="packs-bar-note" id="txt-prices-note">💬 El precio varía según la cantidad de fotos — guardá las que más te gusten en el carrito y consultá por tu pack y descuentos</span>
     </div>
     <div class="gallery-grid" id="gallery-grid"></div>
   </div>
@@ -2062,27 +2035,17 @@ function updateCartPriceTotal() {
   const total = nSki + nPaisajes;
   if (total <= 0) { el.style.display = 'none'; return; }
   el.style.display = 'block';
-  // Ski cost
-  let skiCost = 0;
-  if (nSki > 0) {
-    const result = getActualPrice(nSki);
-    skiCost = result.price;
-  }
-  // Paisajes cost
-  const paisajesCost = getPaisajesPrice(nPaisajes);
-  const grandTotal = skiCost + paisajesCost;
-  priceEl.textContent = formatPrice(grandTotal);
+  priceEl.textContent = 'Consultá 💬';
   const parts = [];
   if (nSki > 0) {
-    const r = getActualPrice(nSki);
     const sf = nSki !== 1 ? 's' : '';
-    parts.push(nSki + ' foto' + sf + ' de esquí × ' + formatPrice(r.unit));
+    parts.push(nSki + ' foto' + sf + ' de esquí');
   }
   if (nPaisajes > 0) {
     const sf = nPaisajes !== 1 ? 's' : '';
-    parts.push(nPaisajes + ' paisaje' + sf + ' × $10.000');
+    parts.push(nPaisajes + ' paisaje' + sf);
   }
-  noteEl.textContent = parts.join(' + ');
+  noteEl.textContent = parts.join(' + ') + ' — te armamos el pack por WhatsApp';
 }
 
 function openCart() {
@@ -2103,7 +2066,6 @@ function renderCartList() {
   list.innerHTML = '';
   // Ski photos
   if (currentDay && selected.size) {
-    const unitNow = getActualPrice(selected.size).unit;
     currentDay.photos.forEach((p, idx) => {
       if (!selected.has(p.id)) return;
       const item = document.createElement('div');
@@ -2115,7 +2077,7 @@ function renderCartList() {
         </div>
         <div class="cart-info">
           <div class="cart-info-name">${p.filename || 'Foto ' + (idx+1)}</div>
-          <div class="cart-info-sub">${currentDay.name} · ${formatPrice(unitNow)}</div>
+          <div class="cart-info-sub">${currentDay.name}</div>
         </div>
         <button class="cart-rm" type="button">✕</button>`;
       const thumb = item.querySelector('.cart-thumb');
@@ -2197,30 +2159,22 @@ function sendToWhatsapp() {
         ? { id: p.id, idx: i+1, filename: p.filename || ('Foto_'+(i+1)) }
         : null)
       .filter(Boolean);
-    const r = getActualPrice(photoItems.length);
-    const packInfo = `${photoItems.length} foto${photoItems.length!==1?'s':''} × ${formatPrice(r.unit)} = ${formatPrice(r.price)}`;
     parts.push('📷 *Fotos de esquí — ' + currentDay.name + ' (' + formatDate(currentDay.date) + ')*\n'
       + photoItems.map(p => '• ' + p.filename).join('\n')
-      + '\n' + packInfo);
+      + '\n(' + photoItems.length + ' foto' + (photoItems.length!==1?'s':'') + ')');
   }
 
   // Paisajes
   if (selectedPaisajes.size > 0) {
     const paisajeItems = DB.paisajes.filter(p => selectedPaisajes.has(p.id));
-    const cost = formatPrice(getPaisajesPrice(paisajeItems.length));
     parts.push('🏔️ *Fotos de paisaje*\n'
       + paisajeItems.map((p, i) => '• ' + (p.filename || 'Paisaje '+(i+1))).join('\n')
-      + '\n' + getPaisajesLabel(paisajeItems.length) + ' = ' + cost);
+      + '\n(' + paisajeItems.length + ' foto' + (paisajeItems.length!==1?'s':'') + ')');
   }
-
-  const nSki = selected.size;
-  const nPaisajes = selectedPaisajes.size;
-  const skiCost = nSki > 0 ? getActualPrice(nSki).price : 0;
-  const totalCost = skiCost + getPaisajesPrice(nPaisajes);
 
   const body = '¡Hola Bel! 👋 Soy *' + (currentUser?.name || 'Cliente') + '* (' + (currentUser?.email || '') + ')\n\n'
     + parts.join('\n\n')
-    + '\n\n💰 *TOTAL: ' + formatPrice(totalCost) + '*';
+    + '\n\n💬 Me pasás el precio del pack?';
 
   const waUrl = 'https://wa.me/' + CFG.whatsapp + '?text=' + encodeURIComponent(body);
   window.open(waUrl, '_blank');
@@ -3115,6 +3069,7 @@ const LANG = {
     backBtn: '← Volver',
     selCount: 'seleccionadas',
     prices: 'Precios',
+    pricesNote: '💬 El precio varía según la cantidad de fotos — guardá las que más te gusten en el carrito y consultá por tu pack y descuentos',
     cartTitle: 'Mi selección',
     cartEmpty: 'No hay fotos seleccionadas',
     cartTotal: 'fotos seleccionadas',
@@ -3127,7 +3082,7 @@ const LANG = {
     waMsg: (name, email, day, date, list) =>
       `Hola Bel! Soy ${name} (${email}).\nEstuve en ${day} el ${date}.\nEstas son las fotos que elegi del dia:\n\n${list}\n\nGracias!`,
     broadcastMsg: (link) =>
-      `Hola! Soy Bel Carvajal, fotografa del Cerro Catedral.\nYa estan listas tus fotos del dia! Podes verlas y elegir las que mas te gustan aca:\n${link}\n\nRegistrate con tu email y busca las fotos de hoy.`,
+      `Hola! Soy Bel Carvajal, fotografa del Cerro Catedral.\nYa estan listas tus fotos del dia! Podes verlas aca:\n${link}\n\nRegistrate con tu email y busca las fotos de hoy. Guarda tus fotos en el carrito y consulta por tu pack 📸`,
   },
   pt: {
     welcome: 'Bem-vindos 👋',
@@ -3150,6 +3105,7 @@ const LANG = {
     backBtn: '← Voltar',
     selCount: 'selecionadas',
     prices: 'Preços',
+    pricesNote: '💬 O preço varia de acordo com a quantidade de fotos — guarde as que mais gosta no carrinho e consulte seu pacote e descontos',
     cartTitle: 'Minha seleção',
     cartEmpty: 'Nenhuma foto selecionada',
     cartTotal: 'fotos selecionadas',
@@ -3162,7 +3118,7 @@ const LANG = {
     waMsg: (name, email, day, date, list) =>
       `Olá Bel! 👋 Sou ${name} (${email}).\nEstive em ${day} no dia ${date} e escolhi estas fotos:\n\n${list}\n\nObrigado!`,
     broadcastMsg: (link) =>
-      `Ola! Sou Bel Carvajal, fotografa do Cerro Catedral.\nSuas fotos do dia ja estao prontas! Voce pode ver e escolher as que mais gostou aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje.`,
+      `Ola! Sou Bel Carvajal, fotografa do Cerro Catedral.\nSuas fotos do dia ja estao prontas! Voce pode ver aqui:\n${link}\n\nCadastre-se com seu email e procure as fotos de hoje. Guarde suas fotos no carrinho e consulte seu pacote 📸`,
   }
 };
 
@@ -3218,8 +3174,8 @@ function applyLang() {
   const selCountLabel = document.querySelector('.gallery-meta');
   if (selCountLabel) selCountLabel.innerHTML = '<span id="sel-count">' + (selCountEl ? selCountEl.textContent : '0') + '</span> ' + L.selCount;
   // Precios label
-  const pricesLabel = document.getElementById('txt-prices');
-  if (pricesLabel) pricesLabel.textContent = L.prices;
+  const pricesLabel = document.getElementById('txt-prices-note');
+  if (pricesLabel) pricesLabel.textContent = L.pricesNote;
   // Cart
   const cartTitle = document.querySelector('.cart-hdr h3');
   if (cartTitle) {
@@ -3320,16 +3276,10 @@ function openPackConsulta() {
 }
 
 function updatePackSuggestion() {
-  const n = selected.size;
+  // Desactivado: ya no mostramos precios fijos en la página, el pack se arma
+  // manualmente por WhatsApp según la cantidad que el cliente elija.
   const el = document.getElementById('pack-suggestion');
-  if (!el) return;
-  if (n === 0) { el.classList.remove('visible'); return; }
-  const nt = nextPriceTier(n);
-  if (!nt) { el.classList.remove('visible'); return; }
-  const missing = nt.min - n;
-  const L = LANG[currentLang];
-  el.innerHTML = L.packSuggest(missing, nt.min, formatPrice(nt.price));
-  el.classList.add('visible');
+  if (el) el.classList.remove('visible');
 }
 
 // ═══════════════════════════════════════════
