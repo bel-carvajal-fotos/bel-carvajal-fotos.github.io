@@ -1329,7 +1329,7 @@ function saveCartSelection() {
     const prev = ls(key) || {};
     ss(key, {
       dayId: currentDay ? currentDay.id : (prev.dayId || null),
-      ids: currentDay ? [...selected].filter(id => !id.startsWith('p_')) : (prev.ids || []),
+      ids: currentDay ? [...selected] : (prev.ids || []),
       paisajesIds: [...selectedPaisajes]
     });
   }
