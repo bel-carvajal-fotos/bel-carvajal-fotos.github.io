@@ -1796,15 +1796,9 @@ function renderDias() {
     const countTxt = isPt
       ? (n + (n !== 1 ? ' dias' : ' dia'))
       : (n + (n !== 1 ? ' días' : ' día'));
-    const sample = [...monthDays].sort((a,b) => new Date(b.date)-new Date(a.date));
-    const day1 = sample[0];
-    const day2 = sample[Math.floor(sample.length / 2)] || day1;
-    const srcs = [pickCoverPhotos(day1?.photos)[0], pickCoverPhotos(day2?.photos)[0]]
-      .filter(Boolean).map(p => getPhotoSrc(p));
     card.innerHTML =
-      buildCoverHTML(srcs) +
       '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
-      '<div class="dia-card-snowflake">📁</div>' +
+      '<div class="dia-card-snowflake">❄️</div>' +
       '<div class="dia-card-name">' + label + '</div>' +
       '<div class="dia-card-date-sm">' + countTxt + '</div>';
     card.onclick = () => { openMonthFolder = key; renderDias(); };
