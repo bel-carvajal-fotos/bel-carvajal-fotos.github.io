@@ -434,6 +434,22 @@ header::before{display:none;}
   box-shadow:0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(232,83,26,.12);
 }
 /* montañas de fondo, muy sutiles, detrás del contenido */
+/* portada: fotos reales difuminadas de fondo, cuando existen */
+.dia-card-ski-cover{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;}
+.dia-card-ski-cover img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  filter:blur(1px) brightness(.62) saturate(1.05);
+  transform:scale(1.12);
+}
+.dia-card-ski-cover img.cover-2{
+  -webkit-mask-image:linear-gradient(100deg,transparent 0%,transparent 22%,#000 68%);
+  mask-image:linear-gradient(100deg,transparent 0%,transparent 22%,#000 68%);
+}
+.dia-card-ski-cover::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(10,26,14,.22) 0%,rgba(10,26,14,.5) 45%,rgba(10,26,14,.94) 100%);
+}
+.dia-card-ski-cover ~ .dia-card-mtnbg{display:none;}
 .dia-card-ski .dia-card-mtnbg{position:absolute;inset:0;z-index:0;opacity:.4;overflow:hidden;pointer-events:none;}
 .dia-card-ski .dia-card-mtnbg .dia-card-mtn{position:absolute;bottom:-4px;left:0;width:100%;}
 /* copo de nieve, esquina superior izquierda */
@@ -450,12 +466,14 @@ header::before{display:none;}
   font-size:1.18rem;letter-spacing:.01em;text-transform:uppercase;
   color:var(--cream);line-height:1.15;margin-top:.5rem;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  text-shadow:0 1px 6px rgba(0,0,0,.55);
 }
 /* fecha debajo del nombre */
 .dia-card-ski .dia-card-date-sm{
   position:relative;z-index:1;
   font-family:var(--font-h);font-size:.95rem;font-weight:700;
   color:var(--accent);letter-spacing:.03em;margin-top:.2rem;
+  text-shadow:0 1px 6px rgba(0,0,0,.55);
 }
 /* carpetas de mes (días agrupados de meses pasados) */
 .dia-card-ski.dia-card-month{border-color:rgba(127,176,144,.18);}
@@ -1461,6 +1479,7 @@ let selectedPaisajes = new Set();
 let adminOK     = false;
 let expandedDay = null;
 let openMonthFolder = null;
+let expandedArchivedMonth = null;
 let archivedMonths = ls('bcArchivedMonths') || [];
 let packsBarOriginalHTML = '';
 
@@ -1744,10 +1763,21 @@ function renderDias() {
   }
 
   // ── DÍAS DE ESQUÍ: carpetas compactas, agrupadas por mes ──
+  function buildCoverHTML(srcs) {
+    const picks = srcs.filter(Boolean).slice(0, 2);
+    if (!picks.length) return '';
+    const imgs = picks.map((src, i) =>
+      '<img src="' + src + '" loading="lazy" draggable="false"' + (i === 1 ? ' class="cover-2"' : '') + '>'
+    ).join('');
+    return '<div class="dia-card-ski-cover">' + imgs + '</div>';
+  }
+
   function buildDayCard(day) {
     const card = document.createElement('div');
     card.className = 'dia-card-ski';
+    const srcs = day.photos.slice(0, 2).map(p => getPhotoSrc(p));
     card.innerHTML =
+      buildCoverHTML(srcs) +
       '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
       '<div class="dia-card-snowflake">❄️</div>' +
       '<div class="dia-card-name">' + day.name + '</div>' +
@@ -1764,7 +1794,11 @@ function renderDias() {
     const countTxt = isPt
       ? (n + (n !== 1 ? ' dias' : ' dia'))
       : (n + (n !== 1 ? ' días' : ' día'));
+    const sample = [...monthDays].sort((a,b) => new Date(b.date)-new Date(a.date));
+    const srcs = [sample[0]?.photos?.[0], sample[Math.floor(sample.length/2)]?.photos?.[0]]
+      .filter(Boolean).map(p => getPhotoSrc(p));
     card.innerHTML =
+      buildCoverHTML(srcs) +
       '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
       '<div class="dia-card-snowflake">📁</div>' +
       '<div class="dia-card-name">' + label + '</div>' +
@@ -2583,6 +2617,57 @@ async function addDay() {
   hideLoading();
 }
 
+function buildDayAdminItem(day) {
+  const open = expandedDay === day.id;
+  const item = document.createElement('div');
+  item.className = 'day-item';
+  item.dataset.dayId = day.id;
+  item.innerHTML = `
+    <div class="day-item-hdr">
+      <div class="day-item-hdr-text" style="flex:1;cursor:pointer;">
+        <div class="day-item-name">${day.name}</div>
+        <div class="day-item-meta">${formatDate(day.date)} · ${day.photos.length} foto${day.photos.length!==1?'s':''}</div>
+      </div>
+      <div class="day-item-acts">
+        <button class="btn-danger-sm day-del-btn" type="button">Eliminar</button>
+        <span class="day-arrow" style="color:var(--muted);font-size:.8rem;cursor:pointer;">${open?'▲':'▼'}</span>
+      </div>
+    </div>
+    <div class="day-item-body${open?' open':''}" id="dib_${day.id}">
+      <div class="upload-zone" id="uz_${day.id}">
+        <input type="file" id="fi_${day.id}" multiple accept="image/*">
+        <div class="uz-ico">📁</div>
+        <p><strong>Tocá para subir fotos</strong><br>o arrastrá los archivos acá</p>
+      </div>
+      <div class="prog-list" id="prog_${day.id}"></div>
+      <div class="thumb-grid" id="thumbs_${day.id}"></div>
+    </div>`;
+
+  // Toggle expand — solo en el texto, no en los botones
+  item.querySelector('.day-item-hdr-text').addEventListener('click', () => toggleDay(day.id));
+  item.querySelector('.day-arrow').addEventListener('click', () => toggleDay(day.id));
+
+  // Delete day — completamente aislado
+  const delBtn = item.querySelector('.day-del-btn');
+  delBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    deleteDay(day.id, item);
+  });
+
+  // Upload zone
+  const uz = item.querySelector('.upload-zone');
+  const fi = item.querySelector('input[type=file]');
+  uz.addEventListener('click', (e) => { if (e.target !== fi) fi.click(); });
+  uz.addEventListener('dragover', (e) => { e.preventDefault(); uz.classList.add('drag'); });
+  uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+  uz.addEventListener('drop', (e) => { e.preventDefault(); uz.classList.remove('drag'); handleFiles(e.dataTransfer.files, day.id); });
+  fi.addEventListener('change', () => handleFiles(fi.files, day.id));
+
+  return item;
+}
+
 function renderMonthsAdmin() {
   const el = document.getElementById('months-admin-list');
   if (!el) return;
@@ -2601,19 +2686,43 @@ function renderMonthsAdmin() {
   keys.forEach(key => {
     const isArchived = archivedMonths.includes(key);
     const n = byMonth[key].length;
+    const isExpanded = isArchived && expandedArchivedMonth === key;
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-bottom:.4rem;';
+
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:.55rem .8rem;margin-bottom:.4rem;';
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:.55rem .8rem;' + (isArchived ? 'cursor:pointer;' : '');
     row.innerHTML =
       '<div><div style="font-family:var(--font-d);font-size:.82rem;font-weight:600;color:var(--cream);">' + monthLabel(key) + '</div>' +
-      '<div style="font-size:.68rem;color:var(--muted);">' + n + ' día' + (n !== 1 ? 's' : '') + (isArchived ? ' · archivado' : '') + '</div></div>';
+      '<div style="font-size:.68rem;color:var(--muted);">' + n + ' día' + (n !== 1 ? 's' : '') + (isArchived ? ' · archivado · doble click para ver los días' : '') + '</div></div>';
     const btn = document.createElement('button');
     btn.className = isArchived ? 'btn-accent-sm' : 'btn-danger-sm';
     btn.type = 'button';
     btn.textContent = isArchived ? 'Reabrir' : 'Archivar';
-    btn.addEventListener('click', () => toggleMonthArchive(key));
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleMonthArchive(key); });
     row.appendChild(btn);
-    el.appendChild(row);
+    if (isArchived) {
+      row.addEventListener('dblclick', () => {
+        expandedArchivedMonth = expandedArchivedMonth === key ? null : key;
+        renderMonthsAdmin();
+      });
+    }
+    wrap.appendChild(row);
+
+    if (isExpanded) {
+      const nested = document.createElement('div');
+      nested.style.cssText = 'margin:.5rem 0 .2rem .6rem;padding-left:.6rem;border-left:2px solid var(--border);';
+      [...byMonth[key]].sort((a,b) => new Date(b.date)-new Date(a.date)).forEach(day => {
+        nested.appendChild(buildDayAdminItem(day));
+      });
+      wrap.appendChild(nested);
+    }
+    el.appendChild(wrap);
   });
+  if (expandedArchivedMonth && byMonth[expandedArchivedMonth]) {
+    byMonth[expandedArchivedMonth].forEach(day => renderThumbs(day.id));
+  }
 }
 
 function renderDayList() {
@@ -2662,7 +2771,7 @@ function renderDayList() {
   list.appendChild(paisajesItem);
   if (openP) renderAdminPaisajesList();
 
-  // ── DÍAS DE ESQUÍ ──
+  // ── DÍAS DE ESQUÍ (solo meses no archivados; los archivados se ven arriba en "Meses") ──
   if (!DB.days.length) {
     const empty = document.createElement('p');
     empty.style.cssText = 'font-size:.78rem;color:var(--muted);margin-top:.6rem;';
@@ -2670,54 +2779,16 @@ function renderDayList() {
     list.appendChild(empty);
     return;
   }
-  [...DB.days].sort((a,b) => new Date(b.date)-new Date(a.date)).forEach(day => {
-    const open = expandedDay === day.id;
-    const item = document.createElement('div');
-    item.className = 'day-item';
-    item.dataset.dayId = day.id;
-    item.innerHTML = `
-      <div class="day-item-hdr">
-        <div class="day-item-hdr-text" style="flex:1;cursor:pointer;">
-          <div class="day-item-name">${day.name}</div>
-          <div class="day-item-meta">${formatDate(day.date)} · ${day.photos.length} foto${day.photos.length!==1?'s':''}</div>
-        </div>
-        <div class="day-item-acts">
-          <button class="btn-danger-sm day-del-btn" type="button">Eliminar</button>
-          <span class="day-arrow" style="color:var(--muted);font-size:.8rem;cursor:pointer;">${open?'▲':'▼'}</span>
-        </div>
-      </div>
-      <div class="day-item-body${open?' open':''}" id="dib_${day.id}">
-        <div class="upload-zone" id="uz_${day.id}">
-          <input type="file" id="fi_${day.id}" multiple accept="image/*">
-          <div class="uz-ico">📁</div>
-          <p><strong>Tocá para subir fotos</strong><br>o arrastrá los archivos acá</p>
-        </div>
-        <div class="prog-list" id="prog_${day.id}"></div>
-        <div class="thumb-grid" id="thumbs_${day.id}"></div>
-      </div>`;
-
-    // Toggle expand — solo en el texto, no en los botones
-    item.querySelector('.day-item-hdr-text').addEventListener('click', () => toggleDay(day.id));
-    item.querySelector('.day-arrow').addEventListener('click', () => toggleDay(day.id));
-
-    // Delete day — completamente aislado
-    const delBtn = item.querySelector('.day-del-btn');
-    delBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      deleteDay(day.id, item);
-    });
-
-    // Upload zone
-    const uz = item.querySelector('.upload-zone');
-    const fi = item.querySelector('input[type=file]');
-    uz.addEventListener('click', (e) => { if (e.target !== fi) fi.click(); });
-    uz.addEventListener('dragover', (e) => { e.preventDefault(); uz.classList.add('drag'); });
-    uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
-    uz.addEventListener('drop', (e) => { e.preventDefault(); uz.classList.remove('drag'); handleFiles(e.dataTransfer.files, day.id); });
-    fi.addEventListener('change', () => handleFiles(fi.files, day.id));
-
+  const activeDays = DB.days.filter(day => !archivedMonths.includes((day.date || '').slice(0, 7)));
+  if (!activeDays.length) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'font-size:.78rem;color:var(--muted);margin-top:.6rem;';
+    msg.textContent = 'No hay días del mes actual. Los días archivados están arriba, en "Meses" (doble click para verlos).';
+    list.appendChild(msg);
+    return;
+  }
+  [...activeDays].sort((a,b) => new Date(b.date)-new Date(a.date)).forEach(day => {
+    const item = buildDayAdminItem(day);
     list.appendChild(item);
     renderThumbs(day.id);
   });
