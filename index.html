@@ -1759,6 +1759,14 @@ function renderDias() {
   }
 
   // ── DÍAS DE ESQUÍ: carpetas compactas, agrupadas por mes ──
+  function pickCoverPhotos(photos) {
+    if (!photos || !photos.length) return [];
+    if (photos.length === 1) return [photos[0]];
+    const i1 = Math.min(Math.floor(photos.length * 0.35), photos.length - 2);
+    const i2 = Math.min(Math.floor(photos.length * 0.7), photos.length - 1);
+    return [photos[i1], photos[Math.max(i2, i1 + 1)]];
+  }
+
   function buildCoverHTML(srcs) {
     const picks = srcs.filter(Boolean).slice(0, 2);
     if (!picks.length) return '';
@@ -1769,7 +1777,7 @@ function renderDias() {
   function buildDayCard(day) {
     const card = document.createElement('div');
     card.className = 'dia-card-ski';
-    const srcs = day.photos.slice(0, 2).map(p => getPhotoSrc(p));
+    const srcs = pickCoverPhotos(day.photos).map(p => getPhotoSrc(p));
     card.innerHTML =
       buildCoverHTML(srcs) +
       '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
@@ -1789,7 +1797,9 @@ function renderDias() {
       ? (n + (n !== 1 ? ' dias' : ' dia'))
       : (n + (n !== 1 ? ' días' : ' día'));
     const sample = [...monthDays].sort((a,b) => new Date(b.date)-new Date(a.date));
-    const srcs = [sample[0]?.photos?.[0], sample[Math.floor(sample.length/2)]?.photos?.[0]]
+    const day1 = sample[0];
+    const day2 = sample[Math.floor(sample.length / 2)] || day1;
+    const srcs = [pickCoverPhotos(day1?.photos)[0], pickCoverPhotos(day2?.photos)[0]]
       .filter(Boolean).map(p => getPhotoSrc(p));
     card.innerHTML =
       buildCoverHTML(srcs) +
