@@ -434,20 +434,16 @@ header::before{display:none;}
   box-shadow:0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(232,83,26,.12);
 }
 /* montañas de fondo, muy sutiles, detrás del contenido */
-/* portada: fotos reales difuminadas de fondo, cuando existen */
-.dia-card-ski-cover{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;}
+/* portada: fotos reales en miniatura, mismo estilo que la card de Paisajes */
+.dia-card-ski-cover{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;display:flex;gap:1px;}
 .dia-card-ski-cover img{
-  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-  filter:blur(1px) brightness(.62) saturate(1.05);
-  transform:scale(1.12);
-}
-.dia-card-ski-cover img.cover-2{
-  -webkit-mask-image:linear-gradient(100deg,transparent 0%,transparent 22%,#000 68%);
-  mask-image:linear-gradient(100deg,transparent 0%,transparent 22%,#000 68%);
+  flex:1;min-width:0;width:100%;height:100%;object-fit:cover;
+  filter:brightness(.88);
+  display:block;
 }
 .dia-card-ski-cover::after{
   content:'';position:absolute;inset:0;
-  background:linear-gradient(180deg,rgba(10,26,14,.22) 0%,rgba(10,26,14,.5) 45%,rgba(10,26,14,.94) 100%);
+  background:linear-gradient(180deg,rgba(10,26,14,0) 40%,rgba(10,26,14,.55) 72%,rgba(10,26,14,.92) 100%);
 }
 .dia-card-ski-cover ~ .dia-card-mtnbg{display:none;}
 .dia-card-ski .dia-card-mtnbg{position:absolute;inset:0;z-index:0;opacity:.4;overflow:hidden;pointer-events:none;}
@@ -1766,9 +1762,7 @@ function renderDias() {
   function buildCoverHTML(srcs) {
     const picks = srcs.filter(Boolean).slice(0, 2);
     if (!picks.length) return '';
-    const imgs = picks.map((src, i) =>
-      '<img src="' + src + '" loading="lazy" draggable="false"' + (i === 1 ? ' class="cover-2"' : '') + '>'
-    ).join('');
+    const imgs = picks.map(src => '<img src="' + src + '" loading="lazy" draggable="false">').join('');
     return '<div class="dia-card-ski-cover">' + imgs + '</div>';
   }
 
