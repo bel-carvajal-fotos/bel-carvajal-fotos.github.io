@@ -2988,6 +2988,7 @@ function handleFiles(files, dayId) {
 
   // Reintenta la subida a Cloudinary automáticamente ante fallas de red
   // transitorias (comunes con wifi débil en la montaña), antes de darla por fallida.
+  // También guarda el motivo real del error para poder diagnosticarlo.
   async function uploadToCloudinaryWithRetry(compressed, filename, maxRetries) {
     let lastErr;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -3001,11 +3002,15 @@ function handleFiles(files, dayId) {
           'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
           { method: 'POST', body: formData }
         );
-        if (!res.ok) throw new Error('Cloudinary ' + res.status);
+        if (!res.ok) {
+          let detail = '';
+          try { const j = await res.json(); detail = (j && j.error && j.error.message) || ''; } catch(_) {}
+          throw new Error('Cloudinary ' + res.status + (detail ? ': ' + detail : ''));
+        }
         return await res.json();
       } catch(e) {
         lastErr = e;
-        if (attempt < maxRetries) await new Promise(r => setTimeout(r, 600 * attempt));
+        if (attempt < maxRetries) await new Promise(r => setTimeout(r, Math.min(1000 * Math.pow(2, attempt - 1), 8000)));
       }
     }
     throw lastErr;
@@ -3046,7 +3051,7 @@ function handleFiles(files, dayId) {
         compress(e2.target.result, 1600, .85, async compressed => {
           try {
             // 1. Subir a Cloudinary, con reintentos automáticos ante fallas de red
-            const data = await uploadToCloudinaryWithRetry(compressed, file.name, 3);
+            const data = await uploadToCloudinaryWithRetry(compressed, file.name, 5);
 
             // 2. Guardar solo metadata (url) — el documento del día se mantiene
             // liviano sin importar cuántas fotos tenga.
@@ -3064,7 +3069,7 @@ function handleFiles(files, dayId) {
             console.error('Error subiendo foto:', file.name, e);
             errorCount++;
             failedFiles.push(file);
-            if (ps) ps.textContent = '❌';
+            if (ps) { ps.textContent = '❌'; ps.title = e.message || 'Error desconocido'; }
           }
           finishOne();
         });
@@ -3076,7 +3081,7 @@ function handleFiles(files, dayId) {
   // Cola con concurrencia limitada: subir de a pocas fotos por vez evita
   // saturar la memoria del navegador y la red cuando se cargan tandas grandes
   // (300-400+ fotos juntas).
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 2;
   let cursor = 0;
   function next() {
     if (cursor >= fileList.length) return;
