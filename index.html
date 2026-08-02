@@ -2956,20 +2956,60 @@ function handleFiles(files, dayId) {
 
   // Resumen agregado — útil para ver de un vistazo el avance en tandas grandes
   let summaryEl = null;
+  let retryBtn = null;
   if (prog) {
     summaryEl = document.createElement('div');
-    summaryEl.style.cssText = 'font-family:var(--font-h);font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:.5rem;';
+    summaryEl.style.cssText = 'font-family:var(--font-h);font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;';
     prog.appendChild(summaryEl);
   }
   let doneCount = 0;
   let errorCount = 0;
+  const failedFiles = [];
   function updateSummary() {
     if (!summaryEl) return;
-    summaryEl.textContent = doneCount < total
+    const txt = doneCount < total
       ? `Subiendo ${doneCount} / ${total}...`
-      : `Listo — ${total - errorCount} de ${total} foto${total!==1?'s':''} subida${total!==1?'s':''}` + (errorCount ? ` (${errorCount} con error, reintentá esas)` : '');
+      : `Listo — ${total - errorCount} de ${total} foto${total!==1?'s':''} subida${total!==1?'s':''}` + (errorCount ? ` (${errorCount} con error)` : '');
+    summaryEl.innerHTML = '';
+    summaryEl.appendChild(document.createTextNode(txt));
+    if (doneCount >= total && errorCount > 0) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-accent-sm';
+      btn.textContent = '↻ Reintentar ' + errorCount + ' fallida' + (errorCount!==1?'s':'');
+      btn.addEventListener('click', () => {
+        const toRetry = failedFiles.splice(0, failedFiles.length);
+        handleFiles(toRetry, dayId);
+      });
+      summaryEl.appendChild(btn);
+    }
   }
   updateSummary();
+
+  // Reintenta la subida a Cloudinary automáticamente ante fallas de red
+  // transitorias (comunes con wifi débil en la montaña), antes de darla por fallida.
+  async function uploadToCloudinaryWithRetry(compressed, filename, maxRetries) {
+    let lastErr;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const blob = await (await fetch(compressed)).blob();
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        formData.append('upload_preset', CFG.cloudinary.uploadPreset);
+        formData.append('folder', 'days/' + dayId);
+        const res = await fetch(
+          'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
+          { method: 'POST', body: formData }
+        );
+        if (!res.ok) throw new Error('Cloudinary ' + res.status);
+        return await res.json();
+      } catch(e) {
+        lastErr = e;
+        if (attempt < maxRetries) await new Promise(r => setTimeout(r, 600 * attempt));
+      }
+    }
+    throw lastErr;
+  }
 
   function uploadOne(file) {
     return new Promise(resolveOne => {
@@ -2998,25 +3038,15 @@ function handleFiles(files, dayId) {
         setTimeout(() => document.getElementById(rid)?.remove(), 2500);
         resolveOne();
       };
-      reader.onerror = () => { clearInterval(iv); errorCount++; const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '❌'; finishOne(); };
+      reader.onerror = () => { clearInterval(iv); errorCount++; failedFiles.push(file); const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '❌'; finishOne(); };
       reader.onload = e2 => {
         clearInterval(iv);
         const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
         const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
         compress(e2.target.result, 1600, .85, async compressed => {
           try {
-            // 1. Subir la imagen a Cloudinary (sin límite de tamaño de documento)
-            const blob = await (await fetch(compressed)).blob();
-            const formData = new FormData();
-            formData.append('file', blob, file.name);
-            formData.append('upload_preset', CFG.cloudinary.uploadPreset);
-            formData.append('folder', 'days/' + dayId);
-            const res = await fetch(
-              'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
-              { method: 'POST', body: formData }
-            );
-            if (!res.ok) throw new Error('Cloudinary ' + res.status);
-            const data = await res.json();
+            // 1. Subir a Cloudinary, con reintentos automáticos ante fallas de red
+            const data = await uploadToCloudinaryWithRetry(compressed, file.name, 3);
 
             // 2. Guardar solo metadata (url) — el documento del día se mantiene
             // liviano sin importar cuántas fotos tenga.
@@ -3033,6 +3063,7 @@ function handleFiles(files, dayId) {
           } catch(e) {
             console.error('Error subiendo foto:', file.name, e);
             errorCount++;
+            failedFiles.push(file);
             if (ps) ps.textContent = '❌';
           }
           finishOne();
