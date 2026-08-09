@@ -590,6 +590,7 @@ header::before{display:none;}
   pointer-events:none;
 }
 .dia-card-paisajes{border-color:rgba(232,83,26,.22);}
+.dia-card-month-wide{border-color:rgba(127,176,144,.25);}
 .dias-empty{text-align:center;padding:6rem 1rem;color:var(--muted);}
 .dias-empty .icon{font-size:2.5rem;margin-bottom:1rem;display:block;opacity:.45;}
 .dias-empty p{font-size:.88rem;line-height:1.7;}
@@ -1790,17 +1791,24 @@ function renderDias() {
 
   function buildMonthFolderCard(key, monthDays) {
     const card = document.createElement('div');
-    card.className = 'dia-card-ski dia-card-month';
+    card.className = 'dia-card dia-card-month-wide';
     const label = monthLabel(key);
     const n = monthDays.length;
     const countTxt = isPt
       ? (n + (n !== 1 ? ' dias' : ' dia'))
       : (n + (n !== 1 ? ' días' : ' día'));
+    // 2 fotos de portada: del día con más fotos de ese mes, tomadas del medio
+    // del set (no las primeras/últimas, que suelen ser de prueba)
+    const richestDay = [...monthDays].sort((a, b) => (b.photos?.length || 0) - (a.photos?.length || 0))[0];
+    const srcs = pickCoverPhotos(richestDay ? richestDay.photos : []).map(p => getPhotoSrc(p));
     card.innerHTML =
-      '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
-      '<div class="dia-card-snowflake">❄️</div>' +
-      '<div class="dia-card-name">' + label + '</div>' +
-      '<div class="dia-card-date-sm">' + countTxt + '</div>';
+      '<div class="dia-card-info">' +
+        (isPt ? chipSkiPT : chipSkiES) +
+        '<div class="dia-card-title">' + label + '</div>' +
+        '<div class="dia-card-count">' + countTxt + '</div>' +
+        (isPt ? enterPT : enterES) +
+      '</div>' +
+      buildVisual(srcs);
     card.onclick = () => { openMonthFolder = key; renderDias(); };
     return card;
   }
@@ -1847,18 +1855,19 @@ function renderDias() {
     }
 
     // Vista normal: los meses archivados (cerrados manualmente desde Admin) se
-    // agrupan en una sola carpeta; el resto muestra sus días sueltos.
+    // muestran como una carpeta horizontal ancha (igual que Paisajes); el resto
+    // de los días sueltos van en la grilla chica de 3 por fila.
     monthKeys.forEach(key => {
       const monthDays = byMonth[key];
       if (archivedMonths.includes(key)) {
-        skiGrid.appendChild(buildMonthFolderCard(key, monthDays));
+        grid.appendChild(buildMonthFolderCard(key, monthDays));
       } else {
         [...monthDays].sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(day => {
           skiGrid.appendChild(buildDayCard(day));
         });
       }
     });
-    grid.appendChild(skiGrid);
+    if (skiGrid.children.length) grid.appendChild(skiGrid);
   }
 }
 
