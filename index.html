@@ -1191,7 +1191,21 @@ const firebaseConfig = {
 };
 
 let db = null;
-function getPhotoSrc(p) { return p.url || p.dataUrl || ""; }
+// Devuelve una versión chica/liviana de la foto (transformada al vuelo por Cloudinary)
+// para que la galería cargue rápido — las fotos acá son solo de muestra, la entrega
+// final de alta calidad se hace aparte por WeTransfer.
+function cloudinaryThumb(url, width) {
+  if (!url || typeof url !== 'string') return url;
+  const marker = '/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return url; // no es una url de Cloudinary (ej. dataUrl viejo)
+  return url.slice(0, idx + marker.length) + 'w_' + width + ',q_auto:eco,f_auto,c_limit/' + url.slice(idx + marker.length);
+}
+function getPhotoSrc(p, width) {
+  const src = (p && (p.url || p.dataUrl)) || '';
+  if (!src || !p.url) return src; // dataUrl legado ya viene chico, se sirve tal cual
+  return cloudinaryThumb(src, width || 500);
+}
 
 function initFirebase() {
   try {
@@ -1203,6 +1217,7 @@ function initFirebase() {
       db.collection('days').orderBy('date', 'desc').onSnapshot((snap) => {
         DB.days = snap.docs.map(d => d.data());
         DB.days.forEach(sortDayPhotos);
+        daysLoadedFromFirestore = true;
         renderDias();
         if (currentDay) {
           const updated = DB.days.find(d => d.id === currentDay.id);
@@ -1469,6 +1484,7 @@ document.addEventListener('visibilitychange', () => {
 // STATE
 // ═══════════════════════════════════════════
 let DB          = { users: loadUsers(), days: loadDaysLocal(), paisajes: [] };
+let daysLoadedFromFirestore = false;
 let currentUser = ls('bcUser') || null;
 let currentDay  = null;
 let selected    = new Set();
@@ -1815,7 +1831,11 @@ function renderDias() {
 
   const days = DB.days.filter(d => d.photos && d.photos.length > 0);
   if (!days.length && (!DB.paisajes || !DB.paisajes.length)) {
-    grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>' + (isPt ? 'Ainda não há fotos carregadas.<br>Volte em breve!' : 'Todavía no hay fotos cargadas.<br>¡Volvé pronto!') + '</p></div>';
+    if (!daysLoadedFromFirestore) {
+      grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>' + (isPt ? 'Carregando suas fotos...' : 'Cargando tus fotos...') + '</p></div>';
+    } else {
+      grid.innerHTML = '<div class="dias-empty"><div class="icon">🏔️</div><p>' + (isPt ? 'Ainda não há fotos carregadas.<br>Volte em breve!' : 'Todavía no hay fotos cargadas.<br>¡Volvé pronto!') + '</p></div>';
+    }
     return;
   }
   if (days.length) {
@@ -1998,7 +2018,7 @@ function openPaisajeLightboxByIdx(idx) {
   if (!p) return;
   lboxPhotoId  = p.id;
   lboxPhotoIdx = idx;
-  document.getElementById('lbox-img').src = getPhotoSrc(p);
+  document.getElementById('lbox-img').src = getPhotoSrc(p, 1000);
   updateLboxState();
   document.getElementById('lightbox').classList.add('open');
 }
@@ -2030,7 +2050,7 @@ function renderGallery() {
     // Click simple → abrir lightbox ampliado
     card.addEventListener('click', (e) => {
       if (e.target.closest('.check-badge')) return; // el badge maneja su propio click
-      openLightbox(getPhotoSrc(photo), photo.id, idx);
+      openLightbox(getPhotoSrc(photo, 1000), photo.id, idx);
     });
 
     // Check badge → seleccionar/deseleccionar sin abrir lightbox
@@ -2224,7 +2244,7 @@ function sendToWhatsapp() {
 
 // Lightbox para paisajes
 function openPaisajeLightbox(p) {
-  document.getElementById('lbox-img').src = getPhotoSrc(p);
+  document.getElementById('lbox-img').src = getPhotoSrc(p, 1000);
   document.getElementById('lightbox').classList.add('active');
   document.getElementById('lbox-prev').style.display = 'none';
   document.getElementById('lbox-next').style.display = 'none';
@@ -2271,7 +2291,7 @@ function lboxNav(dir) {
     lboxPhotoId  = photo.id;
     const img = document.getElementById('lbox-img');
     img.style.opacity = '0';
-    setTimeout(() => { img.src = getPhotoSrc(photo); img.style.opacity = '1'; }, 120);
+    setTimeout(() => { img.src = getPhotoSrc(photo, 1000); img.style.opacity = '1'; }, 120);
     img.style.transition = 'opacity .12s';
     updateLboxState();
     return;
@@ -2284,7 +2304,7 @@ function lboxNav(dir) {
   lboxPhotoId  = photo.id;
   const img = document.getElementById('lbox-img');
   img.style.opacity = '0';
-  setTimeout(() => { img.src = getPhotoSrc(photo); img.style.opacity = '1'; }, 120);
+  setTimeout(() => { img.src = getPhotoSrc(photo, 1000); img.style.opacity = '1'; }, 120);
   img.style.transition = 'opacity .12s';
   updateLboxState();
 }
@@ -3057,7 +3077,7 @@ function handleFiles(files, dayId) {
         clearInterval(iv);
         const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
         const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-        compress(e2.target.result, 1600, .85, async compressed => {
+        compress(e2.target.result, 1280, .78, async compressed => {
           try {
             // 1. Subir a Cloudinary, con reintentos automáticos ante fallas de red
             const data = await uploadToCloudinaryWithRetry(compressed, file.name, 5);
