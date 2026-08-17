@@ -1213,10 +1213,14 @@ function initFirebase() {
       if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
 
-      // Suscribirse a días en tiempo real
-      db.collection('days').orderBy('date', 'desc').onSnapshot((snap) => {
-        DB.days = snap.docs.map(d => d.data());
-        DB.days.forEach(sortDayPhotos);
+      // Suscribirse a días en tiempo real — solo los más recientes, para que la
+      // página cargue rápido. Los meses viejos/archivados se traen bajo demanda
+      // (ver ensureMonthLoaded) recién cuando alguien los abre.
+      db.collection('days').orderBy('date', 'desc').limit(RECENT_DAYS_LIMIT).onSnapshot((snap) => {
+        const recent = snap.docs.map(d => d.data());
+        recent.forEach(sortDayPhotos);
+        const recentIds = new Set(recent.map(d => d.id));
+        DB.days = [...recent, ...extraLoadedDays.filter(d => !recentIds.has(d.id))];
         daysLoadedFromFirestore = true;
         renderDias();
         if (currentDay) {
@@ -1411,7 +1415,7 @@ async function saveDayToFirestore(day) {
           const formData = new FormData();
           formData.append('file', blob, p.filename || 'foto.jpg');
           formData.append('upload_preset', CFG.cloudinary.uploadPreset);
-          formData.append('folder', 'days/' + day.id);
+          formData.append('folder', 'dias/' + (day.date || 'sin-fecha') + '_' + day.id.slice(0,6));
           const res = await fetch(
             'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
             { method: 'POST', body: formData }
@@ -1485,6 +1489,49 @@ document.addEventListener('visibilitychange', () => {
 // ═══════════════════════════════════════════
 let DB          = { users: loadUsers(), days: loadDaysLocal(), paisajes: [] };
 let daysLoadedFromFirestore = false;
+// Solo escuchamos en tiempo real los últimos N días — así la página carga rápido
+// sin descargar meses y meses de historial que nadie necesita ver enseguida.
+const RECENT_DAYS_LIMIT = 45;
+let extraLoadedDays = []; // días de meses viejos, cargados a demanda (no en tiempo real)
+let allDaysLoadedForAdmin = false;
+
+// Trae bajo demanda los días de un mes que todavía no estén en memoria
+// (por ejemplo, al abrir una carpeta de mes archivada más vieja que el rango
+// reciente que se sincroniza en tiempo real).
+async function ensureMonthLoaded(monthKey) {
+  if (!db) return;
+  const already = DB.days.some(d => (d.date || '').slice(0, 7) === monthKey);
+  if (already) return;
+  try {
+    const [y, m] = monthKey.split('-').map(Number);
+    const start = monthKey + '-01';
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = monthKey + '-' + String(lastDay).padStart(2, '0');
+    const snap = await db.collection('days').where('date', '>=', start).where('date', '<=', end).get();
+    const fetched = snap.docs.map(d => d.data());
+    fetched.forEach(sortDayPhotos);
+    const existingIds = new Set(DB.days.map(d => d.id));
+    const newOnes = fetched.filter(d => !existingIds.has(d.id));
+    extraLoadedDays = [...extraLoadedDays, ...newOnes];
+    DB.days = [...DB.days, ...newOnes];
+  } catch(e) { console.warn('Error cargando mes archivado:', e); }
+}
+
+// Trae TODOS los días (incluidos los meses viejos), para que el Admin pueda
+// gestionarlos — solo se usa cuando Bel abre el panel, no afecta a los clientes.
+async function ensureAllDaysLoadedForAdmin() {
+  if (!db || allDaysLoadedForAdmin) return;
+  try {
+    const snap = await db.collection('days').orderBy('date', 'desc').get();
+    const all = snap.docs.map(d => d.data());
+    all.forEach(sortDayPhotos);
+    DB.days = all;
+    extraLoadedDays = all;
+    allDaysLoadedForAdmin = true;
+    renderDayList();
+    renderMonthsAdmin();
+  } catch(e) { console.warn('Error cargando todos los días para admin:', e); }
+}
 let currentUser = ls('bcUser') || null;
 let currentDay  = null;
 let selected    = new Set();
@@ -1825,7 +1872,12 @@ function renderDias() {
         (isPt ? enterPT : enterES) +
       '</div>' +
       buildVisual(srcs);
-    card.onclick = () => { openMonthFolder = key; renderDias(); };
+    card.onclick = async () => {
+      openMonthFolder = key;
+      renderDias();
+      await ensureMonthLoaded(key);
+      if (openMonthFolder === key) renderDias();
+    };
     return card;
   }
 
@@ -2424,7 +2476,7 @@ function closeReview() {
 // ═══════════════════════════════════════════
 // ADMIN
 // ═══════════════════════════════════════════
-function openAdmin() { document.getElementById('admin-overlay').classList.add('open'); renderAdminBody(); }
+function openAdmin() { document.getElementById('admin-overlay').classList.add('open'); renderAdminBody(); if (adminOK) ensureAllDaysLoadedForAdmin(); }
 function closeAdmin() { document.getElementById('admin-overlay').classList.remove('open'); }
 
 function renderAdminBody() {
@@ -2445,7 +2497,7 @@ function renderAdminBody() {
 
 function adminLogin() {
   const pass = document.getElementById('ap-pass').value;
-  if (pass === CFG.adminPass) { adminOK = true; renderAdminContent(); }
+  if (pass === CFG.adminPass) { adminOK = true; renderAdminContent(); ensureAllDaysLoadedForAdmin(); }
   else document.getElementById('ap-err').textContent = 'Contraseña incorrecta';
 }
 
@@ -3026,7 +3078,7 @@ function handleFiles(files, dayId) {
         const formData = new FormData();
         formData.append('file', blob, filename);
         formData.append('upload_preset', CFG.cloudinary.uploadPreset);
-        formData.append('folder', 'days/' + dayId);
+        formData.append('folder', 'dias/' + (day.date || 'sin-fecha') + '_' + dayId.slice(0,6));
         const res = await fetch(
           'https://api.cloudinary.com/v1_1/' + CFG.cloudinary.cloudName + '/image/upload',
           { method: 'POST', body: formData }
@@ -3077,7 +3129,7 @@ function handleFiles(files, dayId) {
         clearInterval(iv);
         const pb = document.getElementById('pb_'+rid); if(pb) pb.style.width='100%';
         const ps = document.getElementById('ps_'+rid); if(ps) ps.textContent = '☁️';
-        compress(e2.target.result, 1280, .78, async compressed => {
+        compress(e2.target.result, 1000, .72, async compressed => {
           try {
             // 1. Subir a Cloudinary, con reintentos automáticos ante fallas de red
             const data = await uploadToCloudinaryWithRetry(compressed, file.name, 5);
@@ -3530,29 +3582,63 @@ function renderPendingList() {
     dayContacts.sort((a,b) => a.sentAt - b.sentAt).forEach(c => {
       const daysAgo = Math.floor((Date.now() - c.sentAt) / 86400000);
       const daysLabel = daysAgo === 0 ? 'hoy' : daysAgo === 1 ? 'hace 1 día' : 'hace ' + daysAgo + ' días';
-      const reminder = encodeURIComponent(
+
+      // Fecha límite concreta: 7 días desde que se avisó por primera vez
+      const deadline = new Date(c.sentAt + 7 * 86400000);
+      const deadlineEs = deadline.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
+      const deadlinePt = deadline.toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
+
+      // 1er aviso — recordatorio general
+      const r1 = encodeURIComponent(
         'Hola! Como estas? Este es un mensaje recordatorio de que tenes pendiente tu seleccion de fotos 📸\n' +
         'Podes verlas y elegir las que mas te gusten aca: ' + link + '\n' +
         '¡No te las pierdas! Las fotos se eliminan periódicamente 🔔\n' +
         'Consulta por descuentos y paquetes! 🎿'
       );
-      const reminderPt = encodeURIComponent(
+      const r1pt = encodeURIComponent(
         'Olá! Como você está? Esta é uma mensagem para lembrar que sua seleção de fotos está pendente 📸\n' +
         'Você pode vê-las e escolher as que mais gosta aqui: ' + link + '\n' +
         'Não perca! As fotos são apagadas periodicamente 🔔\n' +
         'Consulte sobre descontos e pacotes! 🎿'
       );
-      const waUrl = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminder;
-      const waUrlPt = 'https://wa.me/' + c.num.replace('+','') + '?text=' + reminderPt;
+      // 2do aviso — consultando si pudo ver las fotos
+      const r2 = encodeURIComponent(
+        'Hola! Pudiste ver las fotos que te mande? 📸\n' +
+        'Te dejo el link de nuevo por las dudas: ' + link + '\n' +
+        'Cualquier duda me escribís, estoy para ayudarte!'
+      );
+      const r2pt = encodeURIComponent(
+        'Olá! Você conseguiu ver as fotos que te enviei? 📸\n' +
+        'Aqui está o link de novo, por via das dúvidas: ' + link + '\n' +
+        'Qualquer dúvida, é só chamar!'
+      );
+      // 3er aviso — última oportunidad, con fecha límite concreta
+      const r3 = encodeURIComponent(
+        'Hola! Última oportunidad — tus fotos se eliminan el ' + deadlineEs + ' y no las vas a poder recuperar 🚨\n' +
+        'Mirá y elegí las tuyas antes que sea tarde: ' + link + '\n' +
+        'Consulta por descuentos y paquetes! 🎿'
+      );
+      const r3pt = encodeURIComponent(
+        'Olá! Última chance — suas fotos serão apagadas em ' + deadlinePt + ' e não vão poder ser recuperadas 🚨\n' +
+        'Olhe e escolha as suas antes que seja tarde: ' + link + '\n' +
+        'Consulte sobre descontos e pacotes! 🎿'
+      );
+
+      const wa = (num, msg) => 'https://wa.me/' + num.replace('+','') + '?text=' + msg;
+      const btnStyle = 'padding:.35rem .6rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.66rem;font-weight:700;white-space:nowrap;';
       const div = document.createElement('div');
-      div.style.cssText = 'display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
+      div.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
       div.innerHTML =
         '<div style="flex:1;min-width:120px;">' +
           '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + c.name + '</div>' +
           '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
         '</div>' +
-        '<a href="' + waUrl + '" target="_blank" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 Recordatorio</a>' +
-        '<a href="' + waUrlPt + '" target="_blank" title="Lembrete em português" style="padding:.35rem .7rem;background:#25D366;color:#fff;border-radius:5px;text-decoration:none;font-size:.7rem;font-weight:700;white-space:nowrap;">🔔 🇧🇷 PT</a>' +
+        '<a href="' + wa(c.num, r1) + '" target="_blank" title="1er aviso — recordatorio" style="' + btnStyle + '">🔔1 🇦🇷</a>' +
+        '<a href="' + wa(c.num, r1pt) + '" target="_blank" title="1er aviso — português" style="' + btnStyle + '">🔔1 🇧🇷</a>' +
+        '<a href="' + wa(c.num, r2) + '" target="_blank" title="2do aviso — ¿pudiste ver las fotos?" style="' + btnStyle + '">🔔2 🇦🇷</a>' +
+        '<a href="' + wa(c.num, r2pt) + '" target="_blank" title="2do aviso — português" style="' + btnStyle + '">🔔2 🇧🇷</a>' +
+        '<a href="' + wa(c.num, r3) + '" target="_blank" title="3er aviso — última oportunidad" style="' + btnStyle + 'background:#c0392b;">🔔3 🇦🇷</a>' +
+        '<a href="' + wa(c.num, r3pt) + '" target="_blank" title="3er aviso — português" style="' + btnStyle + 'background:#c0392b;">🔔3 🇧🇷</a>' +
         '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
         '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '" data-name="' + c.name + '">✕</button>';
       div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
