@@ -1846,7 +1846,7 @@ function renderDias() {
       buildCoverHTML(srcs) +
       '<div class="dia-card-mtnbg">' + MTN_BACK + MTN_FRONT + '</div>' +
       '<div class="dia-card-snowflake">❄️</div>' +
-      '<div class="dia-card-name">' + day.name + '</div>' +
+      '<div class="dia-card-name">' + escapeHtml(day.name) + '</div>' +
       '<div class="dia-card-date-sm">' + formatDateShort(day.date) + '</div>';
     card.onclick = () => openDay(day.id);
     return card;
@@ -1941,6 +1941,14 @@ function renderDias() {
     });
     if (skiGrid.children.length) grid.appendChild(skiGrid);
   }
+}
+
+// Evita que un nombre de día con comillas, < > u otros caracteres especiales
+// rompa el HTML de la card y deje esa carpeta sin poder abrirse/clickearse.
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
 }
 
 function formatDate(str) {
@@ -2190,7 +2198,7 @@ function renderCartList() {
         </div>
         <div class="cart-info">
           <div class="cart-info-name">${p.filename || 'Foto ' + (idx+1)}</div>
-          <div class="cart-info-sub">${currentDay.name}</div>
+          <div class="cart-info-sub">${escapeHtml(currentDay.name)}</div>
         </div>
         <button class="cart-rm" type="button">✕</button>`;
       const thumb = item.querySelector('.cart-thumb');
@@ -2704,7 +2712,7 @@ function buildDayAdminItem(day) {
   item.innerHTML = `
     <div class="day-item-hdr">
       <div class="day-item-hdr-text" style="flex:1;cursor:pointer;">
-        <div class="day-item-name">${day.name}</div>
+        <div class="day-item-name">${escapeHtml(day.name)}</div>
         <div class="day-item-meta">${formatDate(day.date)} · ${day.photos.length} foto${day.photos.length!==1?'s':''}</div>
       </div>
       <div class="day-item-acts">
@@ -3630,7 +3638,7 @@ function renderPendingList() {
       div.style.cssText = 'display:flex;align-items:center;gap:.5rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap;';
       div.innerHTML =
         '<div style="flex:1;min-width:120px;">' +
-          '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + c.name + '</div>' +
+          '<div style="font-size:.82rem;font-weight:700;color:var(--cream);">' + escapeHtml(c.name) + '</div>' +
           '<div style="font-size:.7rem;color:var(--muted);">' + c.num + ' · ' + daysLabel + '</div>' +
         '</div>' +
         '<a href="' + wa(c.num, r1) + '" target="_blank" title="1er aviso — recordatorio" style="' + btnStyle + '">🔔1 🇦🇷</a>' +
@@ -3640,7 +3648,7 @@ function renderPendingList() {
         '<a href="' + wa(c.num, r3) + '" target="_blank" title="3er aviso — última oportunidad" style="' + btnStyle + 'background:#c0392b;">🔔3 🇦🇷</a>' +
         '<a href="' + wa(c.num, r3pt) + '" target="_blank" title="3er aviso — português" style="' + btnStyle + 'background:#c0392b;">🔔3 🇧🇷</a>' +
         '<button class="btn-danger-sm mark-done-btn" style="font-size:.65rem;" data-num="' + c.num + '">✓ Compró</button>' +
-        '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '" data-name="' + c.name + '">✕</button>';
+        '<button class="btn-danger-sm del-pending-btn" style="font-size:.65rem;background:transparent;color:var(--muted);border-color:var(--border);" data-num="' + c.num + '" data-name="' + escapeHtml(c.name) + '">✕</button>';
       div.querySelector('.mark-done-btn').addEventListener('click', () => markPendingDone(c.num));
       div.querySelector('.del-pending-btn').addEventListener('click', () => confirmDeletePending(c.num, c.name));
       body.appendChild(div);
