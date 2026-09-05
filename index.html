@@ -1416,6 +1416,27 @@ function loadCartSelection() {
 // llegue mientras tanto queda marcado como "pendiente" para hacerse una vez
 // que termine, siempre con el estado más actualizado.
 const _daySaveState = {};
+// Agrega una foto de forma ATÓMICA (arrayUnion de Firestore): a diferencia de
+// guardar todo el día de una vez, esto no depende de qué tenía la pestaña en
+// memoria — así, aunque haya varias pestañas o dispositivos subiendo al mismo
+// día a la vez, ninguna "pisa" el progreso de la otra.
+async function addPhotoAtomic(dayId, photoObj) {
+  if (!db) return;
+  await db.collection('days').doc(dayId).set(
+    { photos: firebase.firestore.FieldValue.arrayUnion(photoObj) },
+    { merge: true }
+  );
+}
+
+// Quita una foto de forma atómica (arrayRemove) — necesita el objeto exacto
+// que está guardado, por eso delPhoto lo busca antes de llamar a esto.
+async function removePhotoAtomic(dayId, photoObj) {
+  if (!db) return;
+  await db.collection('days').doc(dayId).update({
+    photos: firebase.firestore.FieldValue.arrayRemove(photoObj)
+  });
+}
+
 async function scheduleDaySave(day) {
   const st = _daySaveState[day.id] || (_daySaveState[day.id] = { saving: false, pending: false });
   if (st.saving) { st.pending = true; return; }
@@ -3171,17 +3192,18 @@ function handleFiles(files, dayId) {
             // 1. Subir a Cloudinary, con reintentos automáticos ante fallas de red
             const data = await uploadToCloudinaryWithRetry(compressed, file.name, 5);
 
-            // 2. Guardar solo metadata (url) — el documento del día se mantiene
-            // liviano sin importar cuántas fotos tenga.
-            day.photos.push({
+            // 2. Guardar solo esta foto de forma atómica — segura aunque haya
+            // varias pestañas subiendo al mismo día en simultáneo.
+            const photoObj = {
               id: 'p_'+Date.now()+'_'+Math.random().toString(36).slice(2),
               filename: file.name,
               url: data.secure_url,
               publicId: data.public_id,
               uploadedAt: Date.now()
-            });
+            };
+            day.photos.push(photoObj);
             sortDayPhotos(day);
-            scheduleDaySave(day); // agrupa el guardado, no dispara una escritura por cada foto
+            await addPhotoAtomic(dayId, photoObj);
             if (ps) ps.textContent = '✓';
           } catch(e) {
             console.error('Error subiendo foto:', file.name, e);
@@ -3247,10 +3269,12 @@ function renderThumbs(dayId) {
 async function delPhoto(dayId, photoId) {
   const day = DB.days.find(d => d.id === dayId);
   if (!day) return;
+  const photoObj = day.photos.find(p => p.id === photoId);
+  if (!photoObj) return;
   day.photos = day.photos.filter(p => p.id !== photoId);
   showLoading('Eliminando foto...');
   try {
-    await saveDayToFirestore(day);
+    await removePhotoAtomic(dayId, photoObj);
     renderThumbs(dayId);
     const metaEl = document.querySelector(`#dib_${dayId}`)?.closest('.day-item')?.querySelector('.day-item-meta');
     if (metaEl) metaEl.textContent = `${formatDate(day.date)} · ${day.photos.length} foto${day.photos.length!==1?'s':''}`;
