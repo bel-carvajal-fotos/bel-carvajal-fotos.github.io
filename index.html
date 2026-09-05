@@ -867,6 +867,11 @@ header::before{display:none;}
 </head>
 <body>
 
+<div id="conn-warning" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0444a;color:#fff;padding:.7rem 1rem;text-align:center;font-family:var(--font-b);font-size:.82rem;align-items:center;justify-content:center;gap:.6rem;">
+  <span>⚠️ Problema de conexión — actualizá la página para ver las fotos más recientes</span>
+  <button onclick="location.reload()" style="background:#fff;color:#c0444a;border:none;border-radius:4px;padding:.3rem .7rem;font-weight:700;font-size:.78rem;cursor:pointer;">Actualizar</button>
+</div>
+
 <!-- ══ NIEVE GLOBAL ══ -->
 <canvas id="global-snow"></canvas>
 
@@ -1146,22 +1151,43 @@ header::before{display:none;}
 </div>
 
 <script>
-// Load Firebase dynamically so script errors don't block the app
+// Load Firebase dynamically so script errors don't block the app.
+// Si el script falla al cargar (corte de red, bloqueador, etc.), se reintenta
+// unas veces antes de resignarse — así la página no queda mostrando datos
+// viejos en silencio sin conectarse nunca a la base de datos.
 (function() {
-  function loadScript(src, cb) {
+  function loadScriptWithRetry(src, cb, retriesLeft) {
+    if (retriesLeft === undefined) retriesLeft = 3;
     var s = document.createElement('script');
     s.src = src;
     s.onload = cb;
-    s.onerror = function() { console.warn('Firebase script failed to load:', src); cb(); };
+    s.onerror = function() {
+      s.remove();
+      if (retriesLeft > 0) {
+        console.warn('Reintentando cargar script:', src, '— intentos restantes:', retriesLeft);
+        setTimeout(function() { loadScriptWithRetry(src, cb, retriesLeft - 1); }, 1200);
+      } else {
+        console.warn('Firebase script failed to load after retries:', src);
+        cb();
+      }
+    };
     document.head.appendChild(s);
   }
   window._firebaseReady = false;
-  loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js', function() {
-    loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js', function() {
+  loadScriptWithRetry('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js', function() {
+    loadScriptWithRetry('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js', function() {
       window._firebaseReady = true;
       if (window._onFirebaseReady) window._onFirebaseReady();
     });
   });
+  // Si después de un rato la conexión sigue sin establecerse, avisar en vez de
+  // quedarse mostrando datos viejos en silencio.
+  setTimeout(function() {
+    if (!window._dbConnected) {
+      const el = document.getElementById('conn-warning');
+      if (el) el.style.display = 'flex';
+    }
+  }, 9000);
 })();
 </script>
 <script>
@@ -1222,6 +1248,9 @@ function initFirebase() {
         const recentIds = new Set(recent.map(d => d.id));
         DB.days = [...recent, ...extraLoadedDays.filter(d => !recentIds.has(d.id))];
         daysLoadedFromFirestore = true;
+        window._dbConnected = true;
+        const connWarn = document.getElementById('conn-warning');
+        if (connWarn) connWarn.style.display = 'none';
         renderDias();
         if (currentDay) {
           const updated = DB.days.find(d => d.id === currentDay.id);
