@@ -1307,7 +1307,10 @@ if (window._firebaseReady) {
 // STORAGE — todo en Firestore con fallback localStorage
 // ═══════════════════════════════════════════
 function ls(k) { try { return JSON.parse(localStorage.getItem(k)); } catch{ return null; } }
-function ss(k,v) { localStorage.setItem(k, JSON.stringify(v)); }
+function ss(k,v) {
+  try { localStorage.setItem(k, JSON.stringify(v)); }
+  catch(e) { console.warn('No se pudo guardar caché local (' + k + '):', e.message); }
+}
 
 // Usuarios — localStorage como cache local, Firestore como fuente de verdad
 function loadUsers() { return ls('bcUsers') || []; }
@@ -1370,7 +1373,13 @@ async function findUserByEmail(email) {
 }
 
 // Fallback localStorage para días
-function saveDaysLocal() { ss('bcDays', DB.days); }
+function saveDaysLocal() {
+  // Guardar solo los más recientes en caché local — el Admin puede tener
+  // cientos de días cargados (temporada completa), y eso no entra en el
+  // espacio limitado del navegador. La base de datos real sigue teniendo todo.
+  const toCache = [...DB.days].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, RECENT_DAYS_LIMIT);
+  ss('bcDays', toCache);
+}
 function loadDaysLocal() {
   const days = ls('bcDays') || [];
   days.forEach(sortDayPhotos);
