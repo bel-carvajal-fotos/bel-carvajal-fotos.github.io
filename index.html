@@ -1309,7 +1309,12 @@ if (window._firebaseReady) {
 function ls(k) { try { return JSON.parse(localStorage.getItem(k)); } catch{ return null; } }
 function ss(k,v) {
   try { localStorage.setItem(k, JSON.stringify(v)); }
-  catch(e) { console.warn('No se pudo guardar caché local (' + k + '):', e.message); }
+  catch(e) {
+    console.warn('No se pudo guardar caché local (' + k + '):', e.message);
+    // Si quedó algo viejo y pesado ocupando el espacio, lo limpiamos para que
+    // no bloquee guardados futuros (esto es solo caché, no la base de datos real).
+    try { localStorage.removeItem(k); } catch(e2) {}
+  }
 }
 
 // Usuarios — localStorage como cache local, Firestore como fuente de verdad
@@ -1374,11 +1379,17 @@ async function findUserByEmail(email) {
 
 // Fallback localStorage para días
 function saveDaysLocal() {
-  // Guardar solo los más recientes en caché local — el Admin puede tener
-  // cientos de días cargados (temporada completa), y eso no entra en el
-  // espacio limitado del navegador. La base de datos real sigue teniendo todo.
-  const toCache = [...DB.days].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, RECENT_DAYS_LIMIT);
-  ss('bcDays', toCache);
+  // Caché liviana: solo sirve para un primer renderizado rápido antes de que
+  // lleguen los datos reales de Firestore. Guardamos pocos días y recortamos
+  // las fotos de cada uno (3 alcanzan para la portada) — así nunca se acerca
+  // al límite del navegador, sin importar cuántas fotos reales haya subidas.
+  try {
+    const toCache = [...DB.days]
+      .sort((a,b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 20)
+      .map(d => ({ id: d.id, name: d.name, date: d.date, photos: (d.photos || []).slice(0, 3) }));
+    ss('bcDays', toCache);
+  } catch(e) { console.warn('No se pudo armar la caché local de días:', e); }
 }
 function loadDaysLocal() {
   const days = ls('bcDays') || [];
