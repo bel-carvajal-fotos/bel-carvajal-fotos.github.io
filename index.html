@@ -926,7 +926,7 @@ header::before{display:none;}
 </div>
 
 <!-- ══ VISTA: REGISTRO ══ -->
-<div class="view active" id="v-register">
+<div class="view" id="v-register">
   <div class="auth-wrap" id="auth-wrap-register">
     <canvas class="auth-snow-canvas" id="auth-snow-register"></canvas>
     <div class="auth-card">
@@ -954,7 +954,7 @@ header::before{display:none;}
 </div>
 
 <!-- ══ VISTA: DÍAS ══ -->
-<div class="view" id="v-dias">
+<div class="view active" id="v-dias">
 
   <!-- HERO MONTAÑAS -->
   <div class="dias-hero" id="dias-hero">
@@ -987,7 +987,7 @@ header::before{display:none;}
     <div id="dias-eyebrow" class="dias-eyebrow">Cerro Catedral</div>
     <div class="dias-header">
       <span class="dias-header-title" id="txt-dias-section">Tus días</span>
-      <div class="user-badge">
+      <div class="user-badge" id="user-badge" style="display:none;">
         <div class="user-avatar" id="user-avatar-initial">A</div>
         <span class="user-name-badge" id="user-display-name">Ana</span>
         <button class="logout-btn" onclick="doLogout()">salir</button>
@@ -1584,6 +1584,7 @@ async function ensureAllDaysLoadedForAdmin() {
 }
 let currentUser = ls('bcUser') || null;
 let currentDay  = null;
+let pendingSendAfterAuth = false;
 let selected    = new Set();
 let selectedPaisajes = new Set();
 let adminOK     = false;
@@ -1634,7 +1635,8 @@ async function doLogin() {
   ss('bcUser', currentUser);
   updateUserBadge();
   restoreCartFromStorage();
-  showView('v-dias');
+  if (pendingSendAfterAuth) { pendingSendAfterAuth = false; sendToWhatsapp(); showView('v-dias'); }
+  else showView('v-dias');
 }
 
 async function doRegister() {
@@ -1652,8 +1654,10 @@ async function doRegister() {
     currentUser = { email: existing.email, name: existing.name };
     ss('bcUser', currentUser);
     updateUserBadge();
-    showView('v-dias');
+    restoreCartFromStorage();
     if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
+    if (pendingSendAfterAuth) { pendingSendAfterAuth = false; sendToWhatsapp(); showView('v-dias'); }
+    else showView('v-dias');
     return;
   }
   const today = new Date(Date.now() - 3 * 60 * 60 * 1000); // UTC-3 Argentina
@@ -1666,7 +1670,8 @@ async function doRegister() {
   ss('bcUser', currentUser);
   updateUserBadge();
   restoreCartFromStorage();
-  showView('v-dias');
+  if (pendingSendAfterAuth) { pendingSendAfterAuth = false; sendToWhatsapp(); showView('v-dias'); }
+  else showView('v-dias');
 }
 
 function doLogout() {
@@ -1676,7 +1681,9 @@ function doLogout() {
   currentDay = null;
   localStorage.removeItem('bcUser');
   document.getElementById('cart-fab').classList.remove('visible');
-  showView('v-login');
+  const badge = document.getElementById('user-badge');
+  if (badge) badge.style.display = 'none';
+  showView('v-dias');
 }
 
 function updateUserBadge() {
@@ -1685,6 +1692,8 @@ function updateUserBadge() {
   const short   = currentUser.name.split(' ')[0];
   document.getElementById('user-avatar-initial').textContent = initial;
   document.getElementById('user-display-name').textContent   = short;
+  const badge = document.getElementById('user-badge');
+  if (badge) badge.style.display = 'flex';
   // Mostrar botón de prueba solo cuando hay usuario logueado
   const testBtn = document.getElementById('wa-test-btn');
   if (testBtn) testBtn.style.display = 'block';
@@ -2320,6 +2329,12 @@ function clearCart() {
 
 function sendToWhatsapp() {
   if (selected.size === 0 && selectedPaisajes.size === 0) return;
+  if (!currentUser) {
+    pendingSendAfterAuth = true;
+    closeCart();
+    showView('v-register');
+    return;
+  }
   const L = LANG[currentLang];
   const parts = [];
 
@@ -2737,11 +2752,22 @@ function toggleUserDay(dayId) {
   if (arr) arr.textContent = open ? '▲' : '▼';
 }
 
+let addingDay = false;
 async function addDay() {
+  if (addingDay) return; // evita doble-click / doble envío mientras guarda
   const name = document.getElementById('new-day-name').value.trim();
-  const date = document.getElementById('new-day-date').value;
+  const date = document.getElementById('new-day-date').value || new Date().toISOString().slice(0,10);
   if (!name) return;
-  const newDay = { id: 'd_' + Date.now(), name, date: date || new Date().toISOString().slice(0,10), photos: [] };
+  // Evitar crear un día duplicado con el mismo nombre y fecha
+  const dup = DB.days.find(d => d.name.trim().toLowerCase() === name.toLowerCase() && d.date === date);
+  if (dup) {
+    alert('Ya existe un día "' + name + '" con fecha ' + date + '. Abrilo desde la lista para seguir subiendo fotos ahí, en vez de crear uno nuevo.');
+    return;
+  }
+  addingDay = true;
+  const addBtnEl = document.getElementById('add-day-btn');
+  if (addBtnEl) addBtnEl.disabled = true;
+  const newDay = { id: 'd_' + Date.now(), name, date, photos: [] };
   showLoading('Guardando día...');
   try {
     await saveDayToFirestore(newDay);
@@ -2752,6 +2778,7 @@ async function addDay() {
     alert('Error al guardar: ' + e.message);
   }
   hideLoading();
+  addingDay = false;
 }
 
 function buildDayAdminItem(day) {
@@ -3762,7 +3789,8 @@ async function generateBroadcast() {
 // ═══════════════════════════════════════════
 const _pb = document.getElementById('packs-bar');
 if (_pb) packsBarOriginalHTML = _pb.innerHTML;
-if (currentUser) { updateUserBadge(); restoreCartFromStorage(); showView('v-dias'); }
+if (currentUser) { updateUserBadge(); restoreCartFromStorage(); }
+renderDias();
 checkReview();
 applyLang();
 document.getElementById('lang-es')?.classList.toggle('active', currentLang === 'es');
