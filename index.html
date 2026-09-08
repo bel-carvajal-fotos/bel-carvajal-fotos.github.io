@@ -2220,10 +2220,11 @@ function updateCart() {
   const n = selected.size + selectedPaisajes.size;
   document.getElementById('cart-badge').textContent = n;
   document.getElementById('cart-count').textContent = n;
-  // Solo mostrar FAB si el usuario está logueado y en una vista de fotos
+  // Mostrar FAB si hay algo seleccionado y está en una vista de fotos —
+  // ya no depende de estar logueado, el registro se pide recién al enviar el pedido
   const activeView = document.querySelector('.view.active')?.id;
   const inPhotoView = activeView === 'v-dias' || activeView === 'v-gallery';
-  document.getElementById('cart-fab').classList.toggle('visible', n > 0 && !!currentUser && inPhotoView);
+  document.getElementById('cart-fab').classList.toggle('visible', n > 0 && inPhotoView);
   updatePackSuggestion();
   updateCartPriceTotal();
   saveCartSelection();
